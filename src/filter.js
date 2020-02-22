@@ -11,9 +11,34 @@ const isNull = 'isnull';
 export const filterConditions = [equals, notEquals, lessThan, lessThanEqual, greaterThan, greatThanEqual, isNull];
 const isFilterCondition = value => filterConditions.indexOf(value.toLowerCase()) >= 0;
 
+const getPrimaryKeyFromModel = model => {
+  const primaryKey = Object.entries(model).find(field => field[1].type === 'primaryKey');
+  if (!primaryKey) {
+    throw new Error('failed to find primary key');
+  }
+
+  return primaryKey[0];
+};
+
 const simplifyFilter = (() => {
   const splitFilterKey = filterKey => filterKey.split('__');
   const isModelAField = (key, allModels) => allModels[key] !== undefined;
+  const allowedConditionsForModel = [isNull, equals, notEquals];
+  const isAllowedConditionForModel = condition => allowedConditionsForModel.indexOf(condition) >= 0;
+
+  const isValidValue = (condition, value, isModel) => {
+    if (isModel) {
+      return isAllowedConditionForModel(condition);
+    }
+
+    switch (condition) {
+      case isNull:
+        return typeof value === 'boolean';
+
+      default:
+        return true;
+    }
+  };
 
   return (filter, modelName, allModels) => {
     const models = new Set();
@@ -28,16 +53,30 @@ const simplifyFilter = (() => {
         lastEntry = getLastEntry(keys);
       }
 
-      if (isModelAField(lastEntry, allModels)) {
-        keys.push('pk');
-        if (value?.pk) {
-          value = value.pk;
+      const isKeyAModel = isModelAField(lastEntry, allModels);
+      if (!isValidValue(condition, value, isKeyAModel)) {
+        throw new Error(
+          `invalid value for model ${modelName} (condition is ${condition} and field may be ${lastEntry})`
+        );
+      }
+
+      if (isKeyAModel) {
+        const primaryKeyName = getPrimaryKeyFromModel(allModels[lastEntry]);
+
+        keys.push(primaryKeyName);
+        if (value?.[primaryKeyName]) {
+          value = value?.[primaryKeyName];
         }
       }
 
       keys.slice(0, keys.length - 1).forEach(model => models.add(model));
+      const [fieldModel, fieldName] = keys.slice(-2);
+      if (allModels[fieldModel]?.[fieldName] === undefined) {
+        throw new Error(`could not find field ${fieldName} in model ${fieldModel}`);
+      }
+
       where.push({
-        field: keys.slice(-2),
+        field: [fieldModel, fieldName],
         condition,
         value,
       });
@@ -58,9 +97,14 @@ const extendQuery = existingQuery =>
         // order: [],
       };
 
-const modelsWherePrimaryKeyIsNull = where =>
+const modelsWherePrimaryKeyIsNull = (where, allModels) =>
   where
-    .filter(query => query.condition === 'isnull' && query.field[1] === 'pk' && query.value === true)
+    .filter(
+      query =>
+        query.condition === 'isnull' &&
+        query.value === true &&
+        getPrimaryKeyFromModel(allModels[query.field[0]]) === query.field[1]
+    )
     .map(query => query.field[0]);
 
 const queryFilter = (filter, modelName, allModels, existingQuery) => {
@@ -68,7 +112,7 @@ const queryFilter = (filter, modelName, allModels, existingQuery) => {
   const { models, where } = simplifyFilter(filter, modelName, allModels);
   query.where = query.where.concat(where);
   query.models = distinct(query.models.concat(models));
-  query.optionalModels = distinct([...query.optionalModels, ...modelsWherePrimaryKeyIsNull(where)]);
+  query.optionalModels = distinct([...query.optionalModels, ...modelsWherePrimaryKeyIsNull(where, allModels)]);
   return query;
 };
 

@@ -2,9 +2,21 @@ import { query, filterConditions } from '../filter';
 import each from 'jest-each';
 
 const defaultModels = {
-  class: {},
-  student: {},
-  address: {},
+  class: {
+    id: { type: 'primaryKey' },
+    name: {},
+    teacher: {},
+    funding: {},
+  },
+  student: {
+    id: { type: 'primaryKey' },
+    name: {},
+    age: {},
+  },
+  address: {
+    id: { type: 'primaryKey' },
+    city: {},
+  },
 };
 const runWithJustFilter = filter => query.filter(filter, 'class', defaultModels);
 
@@ -26,9 +38,15 @@ test('MultipleComparisons', () => {
   ]);
 });
 
-each(filterConditions).test('FieldCondition %s HasCondition', condition => {
-  const matches = runWithJustFilter({ [`age__${condition}`]: 10 });
-  expect(matches.where).toEqual([{ field: ['class', 'age'], condition, value: 10 }]);
+const testableConditions = filterConditions.filter(i => i != 'isnull');
+each(testableConditions).test('FieldCondition %s HasCondition', condition => {
+  const matches = runWithJustFilter({ [`funding__${condition}`]: 10 });
+  expect(matches.where).toEqual([{ field: ['class', 'funding'], condition, value: 10 }]);
+});
+
+test('FieldCondition IsNull', () => {
+  const matches = runWithJustFilter({ ['funding__isnull']: true });
+  expect(matches.where).toEqual([{ field: ['class', 'funding'], condition: 'isnull', value: true }]);
 });
 
 test('JoinModel', () => {
@@ -57,14 +75,21 @@ test('JoinModel MultipleModels ReusingModels', () => {
 });
 
 test('CanMatch OnRelation', () => {
-  const student = { pk: 3 };
+  const student = { id: 3 };
   const matches = runWithJustFilter({ student });
-  expect(matches.where).toEqual([{ field: ['student', 'pk'], condition: 'eq', value: 3 }]);
+  expect(matches.where).toEqual([{ field: ['student', 'id'], condition: 'eq', value: 3 }]);
 });
 
 test('CanMatch NoRelation', () => {
   const matches = runWithJustFilter({ student__isnull: true });
   expect(matches.models).toEqual(['class', 'student']);
   expect(matches.optionalModels).toEqual(['student']);
-  expect(matches.where).toEqual([{ field: ['student', 'pk'], condition: 'isnull', value: true }]);
+  expect(matches.where).toEqual([{ field: ['student', 'id'], condition: 'isnull', value: true }]);
+});
+
+test('CanMatch NoRelation SpecifyingPrimaryKey', () => {
+  const matches = runWithJustFilter({ student__id__isnull: true });
+  expect(matches.models).toEqual(['class', 'student']);
+  expect(matches.optionalModels).toEqual(['student']);
+  expect(matches.where).toEqual([{ field: ['student', 'id'], condition: 'isnull', value: true }]);
 });
