@@ -5,6 +5,7 @@
  *  models: models to inner join.
  *  optionalModels: models (also in models) however need to be joined using a left join.
  *  where (optional): query if not present all fields are to be selected.
+ *  order: [{field>: <asc|desc>}, ...]
  * }
  *
  * When where is present the field will contain conditional logic and how fields are to be looked up. Where is in the form:
@@ -24,6 +25,8 @@ const lessThanEqual = 'lte';
 const greaterThan = 'gt';
 const greatThanEqual = 'gte';
 const isNull = 'isnull';
+const ascending = 'asc';
+const descending = 'desc';
 
 const and = 'and';
 const or = 'or';
@@ -40,6 +43,8 @@ const getPrimaryKeyFromModel = model => {
   return primaryKey[0];
 };
 
+const splitFilterKey = filterKey => filterKey.split('__');
+
 /*
  * Simplify filter converts a singular filter in to an array.
  * The field entry in the return contains the model name and the field in form [ <model name>, <field name> ].
@@ -55,7 +60,6 @@ const getPrimaryKeyFromModel = model => {
  *  }
  */
 const simplifyFilter = (() => {
-  const splitFilterKey = filterKey => filterKey.split('__');
   const isModelAField = (key, allModels) => allModels[key] !== undefined;
   const allowedConditionsForModel = [isNull, equals, notEquals];
   const isAllowedConditionForModel = condition => allowedConditionsForModel.indexOf(condition) >= 0;
@@ -205,6 +209,57 @@ const queryFilter = (filters, modelName, allModels, existingQuery) => {
   return query;
 };
 
+const orderMapping = {
+  [ascending]: ascending,
+  asc: ascending,
+  [descending]: descending,
+  desc: descending,
+};
+
+const getModelAndKey = (rawKey, defaultModel) => {
+  const separatedKey = splitFilterKey(rawKey).slice(-2);
+  return separatedKey.length === 1 ? [defaultModel, separatedKey[0]] : separatedKey;
+};
+
+const getModelAndKeyAndValidateExists = (rawKey, defaultModel, allModels) => {
+  const [model, key] = getModelAndKey(rawKey, defaultModel);
+  if (!allModels[model]?.[key]) {
+    throw new Error(`key ${key} does not exist on model ${model}`);
+  }
+
+  return [model, key];
+};
+
+const order = (order, defaultModel, allModels, append, existingQuery) => {
+  const query = extendQuery(existingQuery);
+
+  if (!Array.isArray(order)) {
+    order = [order];
+  }
+
+  const newOrder = order.map(entry => {
+    if (typeof entry === 'string') {
+      return { field: getModelAndKeyAndValidateExists(entry, defaultModel, allModels), order: ascending };
+    }
+
+    const [key, sortOrder] = entry;
+    const normalisedSortOrder = orderMapping[sortOrder.toLowerCase()];
+    if (!normalisedSortOrder) {
+      throw new Error(`expected sort order of 'asc' or 'desc' but got ${sortOrder}`);
+    }
+    return { field: getModelAndKeyAndValidateExists(key, defaultModel, allModels), order: normalisedSortOrder };
+  });
+
+  if (append) {
+    query.order = query.order.concat(newOrder);
+  } else {
+    query.order = newOrder;
+  }
+
+  return query;
+};
+
 export const query = {
   filter: queryFilter,
+  order,
 };
