@@ -1,3 +1,20 @@
+/*
+ * Filters allow querying models for selecting or updating.
+ * The output of the filter should be in the following form:
+ * {
+ *  models: models to inner join.
+ *  optionalModels: models (also in models) however need to be joined using a left join.
+ *  where (optional): query if not present all fields are to be selected.
+ * }
+ *
+ * When where is present the field will contain conditional logic and how fields are to be looked up. Where is in the form:
+ * {
+ *  type: <'and' or 'or'>,
+ *  fields: [ { field: [<model>, <key>], condition: <such as (eq, neq, etc.)>, value: <value> } ],
+ *  innerConditions: [ ...<inner where structure if required> ],
+ * }
+ */
+
 import { getLastEntry, distinct, flattenMultiArray } from './utilities';
 
 const equals = 'eq';
@@ -23,6 +40,20 @@ const getPrimaryKeyFromModel = model => {
   return primaryKey[0];
 };
 
+/*
+ * Simplify filter converts a singular filter in to an array.
+ * The field entry in the return contains the model name and the field in form [ <model name>, <field name> ].
+ * Example:
+ *  ({ name: 'bob', student__age: 10}, 'class', { <full model> });
+ * Into:
+ *  {
+ *    models: [ <list of models used in query> ],
+ *    where: [
+ *      { field: ['class', 'bob'], condition: 'eq', value: 'bob' },
+ *      { field: ['student', 'bob'], condition: 'eq', value: 'bob' },
+ *    ]
+ *  }
+ */
 const simplifyFilter = (() => {
   const splitFilterKey = filterKey => filterKey.split('__');
   const isModelAField = (key, allModels) => allModels[key] !== undefined;
@@ -109,7 +140,7 @@ const modelsWherePrimaryKeyIsNull = (where, allModels) =>
     )
     .map(query => query.field[0]);
 
-const expression = (type, fields, innerConditions, currentExpression) => {
+const createOrExtendExpression = (type, fields, innerConditions, currentExpression) => {
   if (fields.length === 0 && innerConditions.length === 0) {
     return currentExpression;
   }
@@ -158,7 +189,7 @@ const queryFilter = (filters, modelName, allModels, existingQuery) => {
   }
 
   if (whereOr.length == 1) {
-    query.where = expression(and, whereOr[0], [], query.where);
+    query.where = createOrExtendExpression(and, whereOr[0], [], query.where);
   } else if (whereOr.length > 1) {
     const singularFields = flattenMultiArray(whereOr.filter(entry => entry.length === 1));
     const multipleFields = whereOr.filter(entry => entry.length > 1);
@@ -168,7 +199,7 @@ const queryFilter = (filters, modelName, allModels, existingQuery) => {
       fields: singularFields,
       innerConditions: andExpressions,
     };
-    query.where = expression(and, [], [orExpression], query.where);
+    query.where = createOrExtendExpression(and, [], [orExpression], query.where);
   }
 
   return query;
