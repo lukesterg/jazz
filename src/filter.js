@@ -1,4 +1,4 @@
-import { getLastEntry, distinct } from './utilities';
+import { getLastEntry, distinct, flattenMultiArray } from './utilities';
 
 const equals = 'eq';
 const notEquals = 'neq';
@@ -7,6 +7,9 @@ const lessThanEqual = 'lte';
 const greaterThan = 'gt';
 const greatThanEqual = 'gte';
 const isNull = 'isnull';
+
+const and = 'and';
+const or = 'or';
 
 export const filterConditions = [equals, notEquals, lessThan, lessThanEqual, greaterThan, greatThanEqual, isNull];
 const isFilterCondition = value => filterConditions.indexOf(value.toLowerCase()) >= 0;
@@ -93,7 +96,6 @@ const extendQuery = existingQuery =>
         // selectFields: [],
         models: [],
         optionalModels: [],
-        where: [],
         // order: [],
       };
 
@@ -107,12 +109,68 @@ const modelsWherePrimaryKeyIsNull = (where, allModels) =>
     )
     .map(query => query.field[0]);
 
-const queryFilter = (filter, modelName, allModels, existingQuery) => {
+const expression = (type, fields, innerConditions, currentExpression) => {
+  if (fields.length === 0 && innerConditions.length === 0) {
+    return currentExpression;
+  }
+
+  if (!currentExpression) {
+    if (fields.length === 0) {
+      if (innerConditions.length === 1) {
+        return innerConditions[0];
+      }
+
+      if (innerConditions.length === 0) {
+        return;
+      }
+    }
+    return { type, fields, innerConditions };
+  }
+
+  if (type === currentExpression.type) {
+    return {
+      type,
+      fields: currentExpression.fields.concat(fields),
+      innerConditions: currentExpression.innerConditions.concat(innerConditions),
+    };
+  }
+
+  return {
+    type,
+    fields,
+    innerConditions: [currentExpression].concat(innerConditions),
+  };
+};
+
+const queryFilter = (filters, modelName, allModels, existingQuery) => {
+  if (!Array.isArray(filters)) {
+    filters = [filters];
+  }
+
   const query = extendQuery(existingQuery);
-  const { models, where } = simplifyFilter(filter, modelName, allModels);
-  query.where = query.where.concat(where);
-  query.models = distinct(query.models.concat(models));
-  query.optionalModels = distinct([...query.optionalModels, ...modelsWherePrimaryKeyIsNull(where, allModels)]);
+  const whereOr = [];
+
+  for (const filter of filters) {
+    const { models, where } = simplifyFilter(filter, modelName, allModels);
+    whereOr.push(where);
+    query.models = distinct(query.models.concat(models));
+    query.optionalModels = distinct([...query.optionalModels, ...modelsWherePrimaryKeyIsNull(where, allModels)]);
+  }
+
+  if (whereOr.length == 1) {
+    query.where = expression(and, whereOr[0], [], query.where);
+  } else if (whereOr.length > 1) {
+    const singularFields = flattenMultiArray(whereOr.filter(entry => entry.length === 1));
+    const multipleFields = whereOr.filter(entry => entry.length > 1);
+    const andExpressions = multipleFields.map(fields => ({ type: and, fields, innerConditions: [] }));
+    const orExpression = {
+      type: or,
+      fields: singularFields,
+      innerConditions: andExpressions,
+    };
+    query.where = expression(and, [], [orExpression], query.where);
+  }
+
   return query;
 };
 
