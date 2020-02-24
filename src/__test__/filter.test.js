@@ -212,3 +212,35 @@ test('Order CanReplace', () => {
   const orderQuery = runOrder([['teacher', 'asc']], initialQuery, false);
   expect(orderQuery.order).toEqual([{ field: ['class', 'teacher'], order: 'asc' }]);
 });
+
+const runValues = (fields, options) => query.values(fields, options, 'class', defaultModels);
+
+test('Value SingleValue', () => {
+  const valueQuery = runValues(['name']);
+  expect(valueQuery.fields).toEqual([{ type: 'field', field: ['class', 'name'] }]);
+});
+
+test('Value MultipleValues', () => {
+  const valueQuery = runValues(['name']);
+  expect(valueQuery.fields).toEqual([{ type: 'field', field: ['class', 'name'] }]);
+});
+
+test('Value DistinctOffByDefault', () => {
+  const valueQuery = runValues(['name']);
+  expect(valueQuery.distinct).toBeFalsy();
+});
+
+test('Value DistinctValues', () => {
+  const valueQuery = runValues(['name'], { distinct: true });
+  expect(valueQuery.distinct).toBeTruthy();
+});
+
+test('Value DistinctOffByDefault', () => {
+  const valueQuery = runValues(['name']);
+  expect(valueQuery.flat).toBeFalsy();
+});
+
+test('Value DistinctValues', () => {
+  const valueQuery = runValues(['name'], { flat: true });
+  expect(valueQuery.flat).toBeTruthy();
+});

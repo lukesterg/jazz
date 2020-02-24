@@ -2,10 +2,13 @@
  * Filters allow querying models for selecting or updating.
  * The output of the filter should be in the following form:
  * {
+ *  fields: [{ type: <field or aggregation type>, field: [<model>, <key>]}],
  *  models: models to inner join.
  *  optionalModels: models (also in models) however need to be joined using a left join.
  *  where (optional): query if not present all fields are to be selected.
  *  order: [{field>: <asc|desc>}, ...]
+ *  distinct: false,
+ *  flat: false,
  * }
  *
  * When where is present the field will contain conditional logic and how fields are to be looked up. Where is in the form:
@@ -128,10 +131,12 @@ const extendQuery = existingQuery =>
   existingQuery
     ? Object.assign({}, existingQuery)
     : {
-        // selectFields: [],
+        fields: [],
         models: [],
         optionalModels: [],
-        // order: [],
+        order: [],
+        distinct: false,
+        flat: false,
       };
 
 const modelsWherePrimaryKeyIsNull = (where, allModels) =>
@@ -259,7 +264,26 @@ const order = (order, defaultModel, allModels, append, existingQuery) => {
   return query;
 };
 
+const defaultValueOptions = { distinct: false, flat: false };
+const values = (fields, options, defaultModel, allModels, existingQuery) => {
+  const query = extendQuery(existingQuery);
+  const completeOptions = Object.assign({}, defaultValueOptions, options);
+
+  if (fields.length === 0 && options.flat) {
+    throw new Error('can only set flat if there are fields');
+  }
+
+  query.distinct = completeOptions.distinct;
+  query.flat = completeOptions.flat;
+  query.fields = fields.map(field => ({
+    type: 'field',
+    field: getModelAndKeyAndValidateExists(field, defaultModel, allModels),
+  }));
+  return query;
+};
+
 export const query = {
   filter: queryFilter,
   order,
+  values,
 };
