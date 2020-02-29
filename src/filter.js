@@ -6,7 +6,7 @@
  *  models: models to inner join.
  *  optionalModels: models (also in models) however need to be joined using a left join.
  *  where (optional): query if not present all fields are to be selected.
- *  order: [{field>: <asc|desc>}, ...]
+ *  order: [field: <field>, order: <asc|desc>], ...]
  *  distinct: false,
  *  flat: false,
  * }
@@ -81,12 +81,12 @@ const simplifyFilter = (() => {
     }
   };
 
-  return (filter, modelName, allModels) => {
+  return (filter, { primaryModel, schema }) => {
     const models = new Set();
     const where = [];
 
-    for (const [flatKey, value] of Object.entries(filter)) {
-      const keys = [modelName, ...splitFilterKey(flatKey)];
+    for (let [flatKey, value] of Object.entries(filter)) {
+      const keys = [primaryModel, ...splitFilterKey(flatKey)];
       let lastEntry = getLastEntry(keys);
       let condition = equals;
       if (isFilterCondition(lastEntry)) {
@@ -94,15 +94,15 @@ const simplifyFilter = (() => {
         lastEntry = getLastEntry(keys);
       }
 
-      const isKeyAModel = isModelAField(lastEntry, allModels);
+      const isKeyAModel = isModelAField(lastEntry, schema);
       if (!isValidValue(condition, value, isKeyAModel)) {
         throw new Error(
-          `invalid value for model ${modelName} (condition is ${condition} and field may be ${lastEntry})`
+          `invalid value for model ${primaryModel} (condition is ${condition} and field may be ${lastEntry})`
         );
       }
 
       if (isKeyAModel) {
-        const primaryKeyName = getPrimaryKeyFromModel(allModels[lastEntry]);
+        const primaryKeyName = getPrimaryKeyFromModel(schema[lastEntry]);
 
         keys.push(primaryKeyName);
         if (value?.[primaryKeyName]) {
@@ -112,7 +112,7 @@ const simplifyFilter = (() => {
 
       keys.slice(0, keys.length - 1).forEach(model => models.add(model));
       const [fieldModel, fieldName] = keys.slice(-2);
-      if (allModels[fieldModel]?.[fieldName] === undefined) {
+      if (schema[fieldModel]?.[fieldName] === undefined) {
         throw new Error(`could not find field ${fieldName} in model ${fieldModel}`);
       }
 
@@ -127,17 +127,13 @@ const simplifyFilter = (() => {
   };
 })();
 
-const extendQuery = existingQuery =>
-  existingQuery
-    ? Object.assign({}, existingQuery)
-    : {
-        fields: [],
-        models: [],
-        optionalModels: [],
-        order: [],
-        distinct: false,
-        flat: false,
-      };
+const extendQuery = existingQuery => {
+  if (!existingQuery) {
+    throw new Error('query not started');
+  }
+
+  return Object.assign({}, existingQuery);
+};
 
 const modelsWherePrimaryKeyIsNull = (where, allModels) =>
   where
@@ -182,7 +178,7 @@ const createOrExtendExpression = (type, fields, innerConditions, currentExpressi
   };
 };
 
-const queryFilter = (filters, modelName, allModels, existingQuery) => {
+const queryFilter = (filters, existingQuery) => {
   if (!Array.isArray(filters)) {
     filters = [filters];
   }
@@ -191,10 +187,15 @@ const queryFilter = (filters, modelName, allModels, existingQuery) => {
   const whereOr = [];
 
   for (const filter of filters) {
-    const { models, where } = simplifyFilter(filter, modelName, allModels);
+    const { models, where } = simplifyFilter(filter, query);
     whereOr.push(where);
-    query.models = distinct(query.models.concat(models));
-    query.optionalModels = distinct([...query.optionalModels, ...modelsWherePrimaryKeyIsNull(where, allModels)]);
+    query.optionalModels = distinct([
+      ...query.optionalModels,
+      ...modelsWherePrimaryKeyIsNull(where, existingQuery.schema),
+    ]);
+    query.models = distinct(query.models.concat(models)).filter(
+      model => query.optionalModels.indexOf(model) < 0 && model != existingQuery.primaryModel
+    );
   }
 
   if (whereOr.length == 1) {
@@ -221,21 +222,21 @@ const orderMapping = {
   desc: descending,
 };
 
-const getModelAndKey = (rawKey, defaultModel) => {
+const getModelAndKey = (rawKey, query) => {
   const separatedKey = splitFilterKey(rawKey).slice(-2);
-  return separatedKey.length === 1 ? [defaultModel, separatedKey[0]] : separatedKey;
+  return separatedKey.length === 1 ? [query.primaryModel, separatedKey[0]] : separatedKey;
 };
 
-const getModelAndKeyAndValidateExists = (rawKey, defaultModel, allModels) => {
-  const [model, key] = getModelAndKey(rawKey, defaultModel);
-  if (!allModels[model]?.[key]) {
+const getModelAndKeyAndValidateExists = (rawKey, query) => {
+  const [model, key] = getModelAndKey(rawKey, query);
+  if (!query.schema[model]?.[key]) {
     throw new Error(`key ${key} does not exist on model ${model}`);
   }
 
   return [model, key];
 };
 
-const order = (order, defaultModel, allModels, append, existingQuery) => {
+const order = (order, append, existingQuery) => {
   const query = extendQuery(existingQuery);
 
   if (!Array.isArray(order)) {
@@ -244,7 +245,7 @@ const order = (order, defaultModel, allModels, append, existingQuery) => {
 
   const newOrder = order.map(entry => {
     if (typeof entry === 'string') {
-      return { field: getModelAndKeyAndValidateExists(entry, defaultModel, allModels), order: ascending };
+      return { field: getModelAndKeyAndValidateExists(entry, existingQuery), order: ascending };
     }
 
     const [key, sortOrder] = entry;
@@ -252,7 +253,7 @@ const order = (order, defaultModel, allModels, append, existingQuery) => {
     if (!normalisedSortOrder) {
       throw new Error(`expected sort order of 'asc' or 'desc' but got ${sortOrder}`);
     }
-    return { field: getModelAndKeyAndValidateExists(key, defaultModel, allModels), order: normalisedSortOrder };
+    return { field: getModelAndKeyAndValidateExists(key, existingQuery), order: normalisedSortOrder };
   });
 
   if (append) {
@@ -265,7 +266,7 @@ const order = (order, defaultModel, allModels, append, existingQuery) => {
 };
 
 const defaultValueOptions = { distinct: false, flat: false };
-const values = (fields, options, defaultModel, allModels, existingQuery) => {
+const values = (fields, options, existingQuery) => {
   const query = extendQuery(existingQuery);
   const completeOptions = Object.assign({}, defaultValueOptions, options);
 
@@ -277,12 +278,24 @@ const values = (fields, options, defaultModel, allModels, existingQuery) => {
   query.flat = completeOptions.flat;
   query.fields = fields.map(field => ({
     type: 'field',
-    field: getModelAndKeyAndValidateExists(field, defaultModel, allModels),
+    field: getModelAndKeyAndValidateExists(field, existingQuery),
   }));
   return query;
 };
 
+const start = (primaryModel, schema) => ({
+  fields: [],
+  primaryModel,
+  models: [],
+  optionalModels: [],
+  order: [],
+  distinct: false,
+  flat: false,
+  schema,
+});
+
 export const query = {
+  start,
   filter: queryFilter,
   order,
   values,

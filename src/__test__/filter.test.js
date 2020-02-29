@@ -1,33 +1,31 @@
 import { query, filterConditions } from '../filter';
 import each from 'jest-each';
+import { defaultModels } from './constants';
 
-const defaultModels = {
-  class: {
-    id: { type: 'primaryKey' },
-    name: {},
-    teacher: {},
-    funding: {},
-  },
-  student: {
-    id: { type: 'primaryKey' },
-    name: {},
-    age: {},
-  },
-  address: {
-    id: { type: 'primaryKey' },
-    city: {},
-  },
+const startQuery = () => query.start('class', defaultModels);
+
+const runFilter = (filter, existingQuery) => {
+  if (!existingQuery) {
+    existingQuery = startQuery();
+  }
+
+  return query.filter(filter, existingQuery);
 };
-const runFilter = (filter, existingQuery) => query.filter(filter, 'class', defaultModels, existingQuery);
+
+test('Start SetsDefaultFields', () => {
+  const query = startQuery();
+  expect(query.primaryModel).toBe('class');
+  expect(query.schema).toEqual(defaultModels);
+});
 
 test('NoFilterArguments DoesNotFilter', () => {
   const filterQuery = runFilter({});
   expect(filterQuery.where).toBeUndefined();
 });
 
-test('NoRelation IncludeDefaultModelName', () => {
+test('NoRelation DoesNotIncludeDefaultModelName', () => {
   const filterQuery = runFilter({ name: 'Year 3' });
-  expect(filterQuery.models).toEqual(['class']);
+  expect(filterQuery.models).toEqual([]);
 });
 
 test('NoOperator IsEqual', () => {
@@ -65,13 +63,13 @@ test('FieldCondition IsNull', () => {
 
 test('JoinModel', () => {
   const filterQuery = runFilter({ student__name: 'Fred' });
-  expect(filterQuery.models).toEqual(['class', 'student']);
+  expect(filterQuery.models).toEqual(['student']);
   expect(filterQuery.where.fields).toEqual([{ field: ['student', 'name'], condition: 'eq', value: 'Fred' }]);
 });
 
 test('JoinModel MultipleModels', () => {
   const filterQuery = runFilter({ student__address__city: 'Darwin' });
-  expect(filterQuery.models).toEqual(['class', 'student', 'address']);
+  expect(filterQuery.models).toEqual(['student', 'address']);
   expect(filterQuery.where.fields).toEqual([{ field: ['address', 'city'], condition: 'eq', value: 'Darwin' }]);
 });
 
@@ -96,14 +94,14 @@ test('CanMatch OnRelation', () => {
 
 test('CanMatch NoRelation', () => {
   const filterQuery = runFilter({ student__isnull: true });
-  expect(filterQuery.models).toEqual(['class', 'student']);
+  expect(filterQuery.models).toEqual([]);
   expect(filterQuery.optionalModels).toEqual(['student']);
   expect(filterQuery.where.fields).toEqual([{ field: ['student', 'id'], condition: 'isnull', value: true }]);
 });
 
 test('CanMatch NoRelation SpecifyingPrimaryKey', () => {
   const filterQuery = runFilter({ student__id__isnull: true });
-  expect(filterQuery.models).toEqual(['class', 'student']);
+  expect(filterQuery.models).toEqual([]);
   expect(filterQuery.optionalModels).toEqual(['student']);
   expect(filterQuery.where.fields).toEqual([{ field: ['student', 'id'], condition: 'isnull', value: true }]);
 });
@@ -172,8 +170,13 @@ test('OrCondition MultipleFilters BothWithOrsAndAnds', () => {
   });
 });
 
-const runOrder = (order, existingQuery, append = false) =>
-  query.order(order, 'class', defaultModels, append, existingQuery);
+const runOrder = (order, existingQuery, append = false) => {
+  if (!existingQuery) {
+    existingQuery = startQuery();
+  }
+
+  return query.order(order, append, existingQuery);
+};
 
 test('Order DefaultsToAscending', () => {
   const orderQuery = runOrder('name');
@@ -213,7 +216,10 @@ test('Order CanReplace', () => {
   expect(orderQuery.order).toEqual([{ field: ['class', 'teacher'], order: 'asc' }]);
 });
 
-const runValues = (fields, options) => query.values(fields, options, 'class', defaultModels);
+const runValues = (fields, options) => {
+  const existingQuery = startQuery();
+  return query.values(fields, options, existingQuery);
+};
 
 test('Value SingleValue', () => {
   const valueQuery = runValues(['name']);
@@ -240,7 +246,12 @@ test('Value DistinctOffByDefault', () => {
   expect(valueQuery.flat).toBeFalsy();
 });
 
-test('Value DistinctValues', () => {
+test('Value FlatValues', () => {
   const valueQuery = runValues(['name'], { flat: true });
   expect(valueQuery.flat).toBeTruthy();
+});
+
+test('Value FlatValuesOffByDefault', () => {
+  const valueQuery = runValues(['name']);
+  expect(valueQuery.flat).toBeFalsy();
 });
