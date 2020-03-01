@@ -1,3 +1,4 @@
+import each from 'jest-each';
 import { defaultModels } from './constants';
 import { query } from '../filter';
 import { postgres } from '../postgres';
@@ -6,7 +7,7 @@ import { Pool as postgresClient } from 'pg';
 
 const start = () => query.start('class', defaultModels);
 
-const runFilter = (filter, existingQuery) => {
+const filterResults = (filter, existingQuery) => {
   existingQuery = existingQuery || start();
   return query.filter(filter, existingQuery);
 };
@@ -25,7 +26,7 @@ const createConnection = () => new postgresClient();
 
 test('AllRecords ReturnsAllRows', async () => {
   const connection = createConnection();
-  const filter = runFilter({});
+  const filter = filterResults({});
   const results = await postgres.query(filter, connection);
   connection.end();
   expect(results.length).toBe(3);
@@ -100,4 +101,44 @@ test('OrderBy Descending', async () => {
   const results = await postgres.query(filter, connection);
   connection.end();
   expect(results).toEqual(['Year 5', 'Year 4', 'Year 3']);
+});
+
+const allFunds = [10, 20, 30];
+const conditionTests = {
+  'less than': [{ funding__lt: 20 }, allFunds.filter(i => i < 20)],
+  'less than equal to': [{ funding__lte: 20 }, allFunds.filter(i => i <= 20)],
+  'greater than': [{ funding__gt: 20 }, allFunds.filter(i => i > 20)],
+  'greater than equal to': [{ funding__gte: 20 }, allFunds.filter(i => i >= 20)],
+  'equal to': [{ funding__eq: 20 }, allFunds.filter(i => i === 20)],
+  'not equal to': [{ funding__neq: 20 }, allFunds.filter(i => i !== 20)],
+};
+each(Object.keys(conditionTests)).test.only('Filter Where "%s"', async testName => {
+  const connection = createConnection();
+  const [filterExpression, expectedResult] = conditionTests[testName];
+  let filter = filterResults(filterExpression);
+  filter = selectFields(['funding'], { flat: true }, filter);
+  filter = orderResults(['funding'], filter);
+  const results = await postgres.query(filter, connection);
+  connection.end();
+  expect(results.map(i => +i)).toEqual(expectedResult);
+});
+
+test('Filter Where IsNull', async () => {
+  const connection = createConnection();
+  let filter = filterResults((helper__isnull = true));
+  filter = selectFields(['name'], { flat: true }, filter);
+  filter = orderResults(['name'], filter);
+  const results = await postgres.query(filter, connection);
+  connection.end();
+  expect(results).toEqual(['Year 3', 'Year 4']);
+});
+
+test('Filter Where IsNotNull', async () => {
+  const connection = createConnection();
+  let filter = filterResults((helper__isnull = true));
+  filter = selectFields(['name'], { flat: true }, filter);
+  filter = orderResults(['name'], filter);
+  const results = await postgres.query(filter, connection);
+  connection.end();
+  expect(results).toEqual(['Year 5']);
 });

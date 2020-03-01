@@ -7,6 +7,7 @@ create table class(
   name varchar(200) not null,
   teacher varchar(200) not null,
   funding numeric(6, 4) not null,
+  helper varchar(200),
   primary key(id)
 );
 
@@ -30,8 +31,8 @@ insert into class(name, teacher, funding)
 values ('Year 3', 'Sam', 10);
 insert into class(name, teacher, funding)
 values ('Year 4', 'Sam', 20);
-insert into class(name, teacher, funding)
-values ('Year 5', 'Sally', 30);
+insert into class(name, teacher, funding, helper)
+values ('Year 5', 'Sally', 30, 'Phil');
 
 insert into student(name, age, class_id)
 values('Troy', 5, 1);

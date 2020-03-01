@@ -8,4 +8,4 @@ export const getLastEntry = array => {
 
 export const distinct = array => [...new Set(array)];
 
-export const flattenMultiArray = array => array.reduce((previous, current) => previous.concat(current));
+export const flattenMultiArray = array => array.reduce((previous, current) => previous.concat(current), []);
