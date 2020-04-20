@@ -14,19 +14,25 @@ const conditionToSqlCondition = {
 };
 
 const generateWhereField = ({ field, condition, value }, options) => {
-  const sqlCondition = conditionToSqlCondition[condition];
+  const conditionNormalised = condition.toLowerCase();
+  const sqlCondition = conditionToSqlCondition[conditionNormalised];
   if (!sqlCondition) {
-    throw new Error(`unknown condition ${condition}`);
+    if (conditionNormalised === 'isnull') {
+      const nullOperator = value ? 'IS NULL' : 'IS NOT NULL';
+      return [`${options.escapeField(field)} ${nullOperator}`];
+    } else {
+      throw new Error(`unknown condition ${conditionNormalised}`);
+    }
   }
   return [`${options.escapeField(field)} ${sqlCondition} `, value];
 };
 
 export const generateWhere = (where, options) => {
-  if (where.length === 0) {
+  if (!where || where.length === 0) {
     return '';
   }
 
-  const addOperator = current => (current === '' ? '' : ` ${where.type} `);
+  const addOperator = (current) => (current === '' ? '' : ` ${where.type} `);
   const fields = where.fields.reduce(
     (previous, current) => joinSql([previous, addOperator(previous), generateWhereField(current, options)]),
     ''
@@ -37,7 +43,7 @@ export const generateWhere = (where, options) => {
   }
 
   // needs to have at least 2 values (sql, value, sql continued, value2, etc.) = minimum of 4 entries
-  const wrapConditionIfRequired = existing => (existing.length >= 4 ? joinSql(['(', existing, ')']) : existing);
+  const wrapConditionIfRequired = (existing) => (existing.length >= 4 ? joinSql(['(', existing, ')']) : existing);
   return where.innerConditions.reduce((previous, current) => {
     if (previous === '') {
       return wrapConditionIfRequired(generateWhere(current, options));
@@ -49,7 +55,7 @@ export const generateWhere = (where, options) => {
 
 // Sql is in the format [query, data, query continued, data 2, etc.]
 // a query will always start with sql. Sql will occur on every even entry.
-export const joinSql = entries => {
+export const joinSql = (entries) => {
   let result = [];
   const isLastEntrySql = () => result.length > 0 && result.length % 2 === 1;
 

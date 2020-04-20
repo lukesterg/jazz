@@ -35,10 +35,10 @@ const and = 'and';
 const or = 'or';
 
 export const filterConditions = [equals, notEquals, lessThan, lessThanEqual, greaterThan, greatThanEqual, isNull];
-const isFilterCondition = value => filterConditions.indexOf(value.toLowerCase()) >= 0;
+const isFilterCondition = (value) => filterConditions.indexOf(value.toLowerCase()) >= 0;
 
-const getPrimaryKeyFromModel = model => {
-  const primaryKey = Object.entries(model).find(field => field[1].type === 'primaryKey');
+const getPrimaryKeyFromModel = (model) => {
+  const primaryKey = Object.entries(model).find((field) => field[1].primaryKey);
   if (!primaryKey) {
     throw new Error('failed to find primary key');
   }
@@ -46,7 +46,7 @@ const getPrimaryKeyFromModel = model => {
   return primaryKey[0];
 };
 
-const splitFilterKey = filterKey => filterKey.split('__');
+const splitFilterKey = (filterKey) => filterKey.split('__');
 
 /*
  * Simplify filter converts a singular filter in to an array.
@@ -65,7 +65,7 @@ const splitFilterKey = filterKey => filterKey.split('__');
 const simplifyFilter = (() => {
   const isModelAField = (key, allModels) => allModels[key] !== undefined;
   const allowedConditionsForModel = [isNull, equals, notEquals];
-  const isAllowedConditionForModel = condition => allowedConditionsForModel.indexOf(condition) >= 0;
+  const isAllowedConditionForModel = (condition) => allowedConditionsForModel.indexOf(condition) >= 0;
 
   const isValidValue = (condition, value, isModel) => {
     if (isModel) {
@@ -110,7 +110,7 @@ const simplifyFilter = (() => {
         }
       }
 
-      keys.slice(0, keys.length - 1).forEach(model => models.add(model));
+      keys.slice(0, keys.length - 1).forEach((model) => models.add(model));
       const [fieldModel, fieldName] = keys.slice(-2);
       if (schema[fieldModel]?.[fieldName] === undefined) {
         throw new Error(`could not find field ${fieldName} in model ${fieldModel}`);
@@ -127,7 +127,7 @@ const simplifyFilter = (() => {
   };
 })();
 
-const extendQuery = existingQuery => {
+const extendQuery = (existingQuery) => {
   if (!existingQuery) {
     throw new Error('query not started');
   }
@@ -138,12 +138,12 @@ const extendQuery = existingQuery => {
 const modelsWherePrimaryKeyIsNull = (where, allModels) =>
   where
     .filter(
-      query =>
+      (query) =>
         query.condition === 'isnull' &&
         query.value === true &&
         getPrimaryKeyFromModel(allModels[query.field[0]]) === query.field[1]
     )
-    .map(query => query.field[0]);
+    .map((query) => query.field[0]);
 
 const createOrExtendExpression = (type, fields, innerConditions, currentExpression) => {
   if (fields.length === 0 && innerConditions.length === 0) {
@@ -194,16 +194,16 @@ const queryFilter = (filters, existingQuery) => {
       ...modelsWherePrimaryKeyIsNull(where, existingQuery.schema),
     ]);
     query.models = distinct(query.models.concat(models)).filter(
-      model => query.optionalModels.indexOf(model) < 0 && model != existingQuery.primaryModel
+      (model) => query.optionalModels.indexOf(model) < 0 && model != existingQuery.primaryModel
     );
   }
 
   if (whereOr.length == 1) {
     query.where = createOrExtendExpression(and, whereOr[0], [], query.where);
   } else if (whereOr.length > 1) {
-    const singularFields = flattenMultiArray(whereOr.filter(entry => entry.length === 1));
-    const multipleFields = whereOr.filter(entry => entry.length > 1);
-    const andExpressions = multipleFields.map(fields => ({ type: and, fields, innerConditions: [] }));
+    const singularFields = flattenMultiArray(whereOr.filter((entry) => entry.length === 1));
+    const multipleFields = whereOr.filter((entry) => entry.length > 1);
+    const andExpressions = multipleFields.map((fields) => ({ type: and, fields, innerConditions: [] }));
     const orExpression = {
       type: or,
       fields: singularFields,
@@ -243,7 +243,7 @@ const order = (order, append, existingQuery) => {
     order = [order];
   }
 
-  const newOrder = order.map(entry => {
+  const newOrder = order.map((entry) => {
     if (typeof entry === 'string') {
       return { field: getModelAndKeyAndValidateExists(entry, existingQuery), order: ascending };
     }
@@ -276,7 +276,7 @@ const values = (fields, options, existingQuery) => {
 
   query.distinct = completeOptions.distinct;
   query.flat = completeOptions.flat;
-  query.fields = fields.map(field => ({
+  query.fields = fields.map((field) => ({
     type: 'field',
     field: getModelAndKeyAndValidateExists(field, existingQuery),
   }));

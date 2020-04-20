@@ -1,11 +1,11 @@
 import { flattenMultiArray } from './utilities';
 import { generateWhere, joinSql, sqlArrayToEscaped } from './sql';
 
-const escapeTableOrField = name => `"${name}"`;
+const escapeTableOrField = (name) => `"${name}"`;
 
 const escapeField = ([table, field]) => `${escapeTableOrField(table)}.${escapeTableOrField(field)}`;
 
-const convertField = field => {
+const convertField = (field) => {
   switch (field.type) {
     case 'field':
       return escapeField(field.field);
@@ -16,7 +16,7 @@ const convertField = field => {
 };
 
 const query = async (filter, connection) => {
-  const fields = filter.fields.length === 0 ? '*' : filter.fields.map(field => convertField(field)).join(', ');
+  const fields = filter.fields.length === 0 ? '*' : filter.fields.map((field) => convertField(field)).join(', ');
   const startSql = [
     'select',
     filter.distinct ? 'distinct' : '',
@@ -24,28 +24,28 @@ const query = async (filter, connection) => {
     'from',
     escapeTableOrField(filter.primaryModel),
   ]
-    .filter(entry => entry != '')
+    .filter((entry) => entry != '')
     .join(' ');
 
   const where = generateWhere(filter.where, { escapeField });
-  const wherePrefix = where.length > 0 ? ' where' : '';
+  const wherePrefix = where.length > 0 ? ' where ' : '';
   const endSql = generateOrder(filter.order);
   const endPrefix = endSql.length > 0 ? ' ' : '';
 
   return runSql(joinSql([startSql, wherePrefix, where, endPrefix, endSql]), connection, filter.flat);
 };
 
-const generateOrder = order => {
+const generateOrder = (order) => {
   if (order.length === 0) {
     return '';
   }
 
-  const orderFields = order.map(entry => `${escapeField(entry.field)} ${entry.order}`).join(', ');
+  const orderFields = order.map((entry) => `${escapeField(entry.field)} ${entry.order}`).join(', ');
   return `order by ${orderFields}`;
 };
 
 const runSql = async (sql, connection, flat) => {
-  const [fullSql, values] = sqlArrayToEscaped(sql, index => `$${index + 1}`);
+  const [fullSql, values] = sqlArrayToEscaped(sql, (index) => `$${index + 1}`);
 
   const results = await connection.query({
     rowMode: flat ? 'array' : 'objects',

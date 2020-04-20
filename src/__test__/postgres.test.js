@@ -105,14 +105,14 @@ test('OrderBy Descending', async () => {
 
 const allFunds = [10, 20, 30];
 const conditionTests = {
-  'less than': [{ funding__lt: 20 }, allFunds.filter(i => i < 20)],
-  'less than equal to': [{ funding__lte: 20 }, allFunds.filter(i => i <= 20)],
-  'greater than': [{ funding__gt: 20 }, allFunds.filter(i => i > 20)],
-  'greater than equal to': [{ funding__gte: 20 }, allFunds.filter(i => i >= 20)],
-  'equal to': [{ funding__eq: 20 }, allFunds.filter(i => i === 20)],
-  'not equal to': [{ funding__neq: 20 }, allFunds.filter(i => i !== 20)],
+  'less than': [{ funding__lt: 20 }, allFunds.filter((i) => i < 20)],
+  'less than equal to': [{ funding__lte: 20 }, allFunds.filter((i) => i <= 20)],
+  'greater than': [{ funding__gt: 20 }, allFunds.filter((i) => i > 20)],
+  'greater than equal to': [{ funding__gte: 20 }, allFunds.filter((i) => i >= 20)],
+  'equal to': [{ funding__eq: 20 }, allFunds.filter((i) => i === 20)],
+  'not equal to': [{ funding__neq: 20 }, allFunds.filter((i) => i !== 20)],
 };
-each(Object.keys(conditionTests)).test.only('Filter Where "%s"', async testName => {
+each(Object.keys(conditionTests)).test('Filter Where "%s"', async (testName) => {
   const connection = createConnection();
   const [filterExpression, expectedResult] = conditionTests[testName];
   let filter = filterResults(filterExpression);
@@ -120,12 +120,12 @@ each(Object.keys(conditionTests)).test.only('Filter Where "%s"', async testName 
   filter = orderResults(['funding'], filter);
   const results = await postgres.query(filter, connection);
   connection.end();
-  expect(results.map(i => +i)).toEqual(expectedResult);
+  expect(results.map((i) => +i)).toEqual(expectedResult);
 });
 
 test('Filter Where IsNull', async () => {
   const connection = createConnection();
-  let filter = filterResults((helper__isnull = true));
+  let filter = filterResults({ helper__isnull: true });
   filter = selectFields(['name'], { flat: true }, filter);
   filter = orderResults(['name'], filter);
   const results = await postgres.query(filter, connection);
@@ -135,7 +135,7 @@ test('Filter Where IsNull', async () => {
 
 test('Filter Where IsNotNull', async () => {
   const connection = createConnection();
-  let filter = filterResults((helper__isnull = true));
+  let filter = filterResults({ helper__isnull: false });
   filter = selectFields(['name'], { flat: true }, filter);
   filter = orderResults(['name'], filter);
   const results = await postgres.query(filter, connection);

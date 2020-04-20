@@ -2,7 +2,7 @@ import { sqlArrayToEscaped, joinSql, generateWhere } from '../sql';
 import { defaultModels } from './constants';
 import { query } from '../filter';
 
-const sqlArrayEscapeWithDollarSymbol = array => sqlArrayToEscaped(array, index => `$${index + 1}`);
+const sqlArrayEscapeWithDollarSymbol = (array) => sqlArrayToEscaped(array, (index) => `$${index + 1}`);
 
 test('EscapedSql EmptyArray IsEmpty', () => {
   const [sql, values] = sqlArrayEscapeWithDollarSymbol([]);
@@ -58,9 +58,9 @@ test('JoinSql MultipleArrays', () => {
   expect(sql).toEqual(['SELECT FROM abc WHERE a=', 3, ' AND b=', 4, ' AND c=', 9, ' AND d=', 10]);
 });
 
-const wrapWhere = where => generateWhere(where, { escapeField: ([table, field]) => `"${table}"."${field}"` });
+const wrapWhere = (where) => generateWhere(where, { escapeField: ([table, field]) => `"${table}"."${field}"` });
 
-const whereSimpleEqual = expression => {
+const whereSimpleEqual = (expression) => {
   let filter = query.start('class', defaultModels);
   return query.filter(expression, filter).where;
 };

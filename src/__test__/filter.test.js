@@ -50,8 +50,8 @@ test('SingleComparison ExtendFilter WithAnotherSingleComparison', () => {
   ]);
 });
 
-const testableConditions = filterConditions.filter(i => i != 'isnull');
-each(testableConditions).test('FieldCondition %s HasCondition', condition => {
+const testableConditions = filterConditions.filter((i) => i != 'isnull');
+each(testableConditions).test('FieldCondition %s HasCondition', (condition) => {
   const filterQuery = runFilter({ [`funding__${condition}`]: 10 });
   expect(filterQuery.where.fields).toEqual([{ field: ['class', 'funding'], condition, value: 10 }]);
 });
