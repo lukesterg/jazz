@@ -229,6 +229,7 @@ const getModelAndKey = (rawKey, query) => {
 
 const getModelAndKeyAndValidateExists = (rawKey, query) => {
   const [model, key] = getModelAndKey(rawKey, query);
+
   if (!query.schema[model]?.[key]) {
     throw new Error(`key ${key} does not exist on model ${model}`);
   }
