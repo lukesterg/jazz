@@ -56,7 +56,6 @@ const runSql = async (sql, flat, connection) => {
     values,
     text: fullSql,
   });
-  connection.end();
 
   const isFlatAndOnlyOneField = flat && results.rows.length > 0 && results.rows[0].length === 1;
   if (isFlatAndOnlyOneField) {

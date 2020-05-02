@@ -15,7 +15,7 @@ create table student(
   id serial,
   name varchar(200) not null,
   age int,
-  class_id int references class(id) on delete cascade,
+  class int references class(id) on delete cascade,
   primary key(id)
 );
 
@@ -34,18 +34,18 @@ values ('Year 4', 'Sam', 20);
 insert into class(name, teacher, funding, helper)
 values ('Year 5', 'Sally', 30, 'Phil');
 
-insert into student(name, age, class_id)
+insert into student(name, age, class)
 values('Troy', 5, 1);
-insert into student(name, age, class_id)
+insert into student(name, age, class)
 values('Alison', 6, 1);
 insert into address(city, student_id)
 values('Moil', 1);
 insert into address(city, student_id)
 values('Leanyer', 1);
 
-insert into student(name, age, class_id)
+insert into student(name, age, class)
 values('Joe', 8, 2);
-insert into student(name, age, class_id)
+insert into student(name, age, class)
 values('John', 10, 2);
 insert into address(city, student_id)
 values('Moil', 3);

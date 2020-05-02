@@ -20,6 +20,7 @@
  */
 
 import { getLastEntry, distinct, flattenMultiArray } from './utilities';
+import { hasManyType, hasOne, hasOneType } from './model';
 
 const equals = 'eq';
 const notEquals = 'neq';
@@ -63,7 +64,6 @@ const splitFilterKey = (filterKey) => filterKey.split('__');
  *  }
  */
 const simplifyFilter = (() => {
-  const isModelAField = (key, allModels) => allModels[key] !== undefined;
   const allowedConditionsForModel = [isNull, equals, notEquals];
   const isAllowedConditionForModel = (condition) => allowedConditionsForModel.indexOf(condition) >= 0;
 
@@ -94,7 +94,8 @@ const simplifyFilter = (() => {
         lastEntry = getLastEntry(keys);
       }
 
-      const isKeyAModel = isModelAField(lastEntry, schema);
+      const fieldDefinition = schema[lastEntry];
+      const isKeyAModel = fieldDefinition?.type === hasOneType;
       if (!isValidValue(condition, value, isKeyAModel)) {
         throw new Error(
           `invalid value for model ${primaryModel} (condition is ${condition} and field may be ${lastEntry})`
@@ -102,7 +103,7 @@ const simplifyFilter = (() => {
       }
 
       if (isKeyAModel) {
-        const primaryKeyName = getPrimaryKeyFromModel(schema[lastEntry]);
+        const primaryKeyName = getPrimaryKeyFromModel(fieldDefinition);
 
         keys.push(primaryKeyName);
         if (value?.[primaryKeyName]) {

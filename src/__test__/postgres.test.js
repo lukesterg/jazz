@@ -7,7 +7,7 @@ const postgresConnectionString = 'postgres://test:qwerty@localhost/test';
 const createConnection = () => {
   const databaseName = Symbol();
   JazzDb.createDatabase(postgresConnectionString, databaseName);
-  JazzDb.addSchema(defaultModels, undefined, databaseName);
+  JazzDb.addSchema(defaultModels, databaseName);
   return JazzDb.getDatabase(databaseName);
 };
 
@@ -115,4 +115,12 @@ test('Filter Where IsNotNull', async () => {
     .order(['name'])
     .values(['name'], { flat: true });
   expect(results).toEqual(['Year 5']);
+});
+
+test('RelatedField HasMany', async () => {
+  const connection = createConnection();
+  const results = await connection.class.all.filter({ name: 'Year 3' }).values();
+  const students = await results[0].students();
+  const names = students.map((student) => student.name).sort();
+  expect(names).toEqual(['Alison', 'Troy']);
 });

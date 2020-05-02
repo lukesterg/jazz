@@ -1,6 +1,14 @@
 import { register as registerPostgres } from './backend/postgres';
 import { createBackend } from './backend';
 import { query } from './filter';
+import { addRelatedFieldsToResult } from './model';
+
+/**
+ * Database state is comprised of:
+ *  backend - database backend such as postgres
+ *  schema - json representation of database
+ *  materialized - how the developer interfaces with the database.
+ */
 
 const defaultDatabase = Symbol('default');
 let databaseState = {};
@@ -23,12 +31,8 @@ const createDatabase = (connectionString, name = defaultDatabase) => {
   databaseState[name] = { backend, schema: {}, materialized: {} };
 };
 
-const addSchema = (schema, namespace, name = defaultDatabase) => {
+const addSchema = (schema, name = defaultDatabase) => {
   const database = getDatabaseState(name);
-
-  if (namespace) {
-    schema = Object.fromEntries(Object.entries(schema).map((entry) => [`${namespace}_${entry[0]}`, entry[1]]));
-  }
 
   const intersectingKeys = Object.keys(schema).filter((key) => database.schema[key]);
   if (intersectingKeys.length > 0) {
@@ -50,20 +54,47 @@ const createMaterializedView = (modelName, databaseState) => ({
 });
 
 class Query {
-  constructor(modelName, { schema, backend }) {
-    this._schema = schema;
-    this._backend = backend;
-    this._query = query.start(modelName, schema);
+  constructor(modelNameOrQuery, databaseState) {
+    this._databaseState = databaseState;
+    this._query =
+      typeof modelNameOrQuery === 'string' ? query.start(modelNameOrQuery, databaseState.schema) : modelNameOrQuery;
+  }
+
+  get _schema() {
+    return this._databaseState.schema;
+  }
+
+  get _backend() {
+    return this._databaseState.backend;
+  }
+
+  _newFilter(query) {
+    return new Query(query, this._databaseState);
   }
 
   filter(filter) {
-    this._query = query.filter(filter, this._query);
-    return this;
+    return this._newFilter(query.filter(filter, this._query));
   }
 
-  values(fields, options) {
+  async values(fields, options) {
+    const runQuery = async (query) => {
+      const results = await this._backend.query(query);
+
+      if (options?.flat) {
+        return results;
+      }
+
+      return results.map((result) => {
+        addRelatedFieldsToResult(query.primaryModel, result, this._databaseState.schema, (model, field, value) => {
+          const query = new Query(model, this._databaseState);
+          return query.filter({ [field]: value });
+        });
+        return result;
+      });
+    };
+
     if (!fields) {
-      return this._backend.query(this._query);
+      return await runQuery(this._query);
     }
 
     if (typeof fields === 'string') {
@@ -71,7 +102,7 @@ class Query {
     }
 
     const valueQuery = query.values(fields, options, this._query);
-    return this._backend.query(valueQuery);
+    return await runQuery(valueQuery);
   }
 
   order(order, append = false) {
@@ -79,8 +110,7 @@ class Query {
       order = [order];
     }
 
-    this._query = query.order(order, append, this._query);
-    return this;
+    return this._newFilter(query.order(order, append, this._query));
   }
 
   async *[Symbol.asyncIterator]() {

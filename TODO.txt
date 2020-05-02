@@ -1,0 +1,10 @@
+Filter using in i.e. model__id__in=[2,3]
+Many to many and one to one relationships
+Backing fields (database fields with different names)
+Aggregations
+Insert and update
+Model validations
+Non-database fields (email, url, etc.)
+Documentation and examples
+Cache processing of schema?
+Cache processing of results? Should class.students.class be another query?

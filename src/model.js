@@ -1,5 +1,3 @@
-import { areAllValuesDistinct, throwIfFalsy } from './utilities';
-
 export const textType = 'text';
 export const numberType = 'number';
 export const hasOneType = 'hasOne';
@@ -27,22 +25,77 @@ const relatedFieldTypes = [hasOneType, hasManyType];
 
 export const isRelatedField = (field) => relatedFieldTypes.indexOf(field.type) >= 0;
 
-export const addRelatedFieldsToResult = (result, models, modelName, connection) => {
-  const relatedFields = Object.entries(model[modelName]).filter((field) => isRelatedField(field[1]));
-  for (const [relatedFieldName, relatedFieldValue] of relatedFields) {
-    const existingValue = result[relatedFieldName];
-    if (existingValue !== undefined) {
-      result[`${relatedFieldName}__id`] = existingValue;
-    }
+/*
+const getRelatedField = (field, models) => {
+  const relatedModelName = models.relatedModel;
+  const relatedModel = models[relatedModelName];
+  const relatedFieldName = field.relatedField;
+  const relatedField = relatedModel?.[relatedFieldName];
+  if (!relatedField) {
+    throw new Error(`unable to find related field "${relatedFieldName}" in model "${relatedModelName}"`);
+  }
 
-    Object.defineProperty(result, relatedFieldName, {
-      get: () => {
-        return ['a'];
-      },
-    });
+  return { relatedFieldName, relatedModelName, relatedField };
+};*/
+
+const generateRelatedFieldQuery = (fieldNameName, fieldValue, result, models, queryGenerator) => {
+  if (fieldValue.type === 'hasMany') {
+    return queryGenerator(fieldValue.relatedModel, fieldValue.relatedField, result.id);
+  } else if (fieldValue.type === 'hasOne') {
+    return queryGenerator(fieldValue.relatedModel, 'id', result[`${fieldNameName}__id`]);
+  } else {
+    throw new Error(`unknown field type ${fieldValue.type}`);
   }
 };
 
+export const addRelatedFieldsToResult = (modelName, result, models, queryGenerator) => {
+  const relatedFields = Object.entries(models[modelName]).filter((field) => isRelatedField(field[1]));
+  for (const [relatedFieldName, relatedFieldValue] of relatedFields) {
+    const existingValue = result[relatedFieldName];
+    if (existingValue) {
+      result[`${relatedFieldName}_id`] = existingValue;
+    }
+
+    const query = generateRelatedFieldQuery(relatedFieldName, relatedFieldValue, result, models, queryGenerator);
+    wrapForeignKey(result, relatedFieldName, query);
+  }
+};
+
+const wrapForeignKey = (result, fieldName, query) => {
+  let queryResult;
+  let resultFetched = false;
+
+  const get = () => {
+    if (resultFetched) {
+      return queryResult;
+    }
+
+    resultFetched = true;
+    queryResult = query.values();
+    return queryResult;
+  };
+
+  const set = (value) => {
+    result = Promise.resolve(value);
+    resultFetched = true;
+    return value;
+  };
+
+  // defined properties do not appear in the object. Such as Object.enumerable
+  Object.defineProperty(result, fieldName, {
+    // if we do a fetch it will be async, so we cannot use properties as would be expected.
+    value: (value) => {
+      if (value === undefined) {
+        return get();
+      }
+
+      set(value);
+      return value;
+    },
+  });
+};
+
+/*
 const verifyPrimaryKey = (fields) => {
   const primaryKey = Object.entries(fields).filter((entry) => entry[1].primaryKey);
   if (primaryKey.length > 1) {
@@ -110,3 +163,4 @@ export const createModels = (models, engine) => {
 
   return modelCopy;
 };
+*/
