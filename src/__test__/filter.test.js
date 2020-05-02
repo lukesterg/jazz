@@ -88,7 +88,7 @@ test('JoinModel MultipleModels ReusingModels', () => {
 
 test('CanMatch OnRelation', () => {
   const student = { id: 3 };
-  const filterQuery = runFilter({ student });
+  const startQuery = () => query.start('class', defaultModels);
   expect(filterQuery.where.fields).toEqual([{ field: ['student', 'id'], condition: 'eq', value: 3 }]);
 });
 

@@ -4,6 +4,7 @@ Backing fields (database fields with different names)
 Aggregations
 Insert and update
 Model validations
+Sql interceptor for logging sql
 Non-database fields (email, url, etc.)
 Documentation and examples
 Cache processing of schema?

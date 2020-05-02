@@ -119,11 +119,20 @@ test('Filter Where IsNotNull', async () => {
 
 test('Filter Limit', async () => {
   const connection = createConnection();
-  const results = await connection.class.all
-    .filter({ helper__isnull: true })
-    .order(['name'])
-    .values(['name'], { flat: true, limit: 1 });
+  const results = await connection.class.all.order(['name']).values(['name'], { flat: true, limit: 1 });
   expect(results).toEqual(['Year 3']);
+});
+
+test('Single WithRecord', async () => {
+  const connection = createConnection();
+  const result = await connection.class.all.filter({ helper__isnull: true }).order(['name']).single();
+  expect(result.name).toEqual('Year 3');
+});
+
+test('Single WithoutRecord', async () => {
+  const connection = createConnection();
+  const result = await connection.class.all.filter({ id: -1 }).single();
+  expect(result).toBeUndefined();
 });
 
 test('RelatedField HasMany', async () => {

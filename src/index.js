@@ -93,6 +93,17 @@ class Query {
       });
     };
 
+    if (typeof fields === 'string') {
+      fields = [fields];
+    } else if (typeof fields === 'object' && !Array.isArray(fields) && !options) {
+      fields = undefined;
+      options = fields;
+    }
+
+    if (!options) {
+      options = {};
+    }
+
     let finalQuery = this._query;
 
     if (options.limit > 0) {
@@ -103,12 +114,13 @@ class Query {
       return await runQuery(finalQuery);
     }
 
-    if (typeof fields === 'string') {
-      fields = [fields];
-    }
-
     finalQuery = query.values(fields, options, finalQuery);
     return await runQuery(finalQuery);
+  }
+
+  async single() {
+    const results = await this.values({ limit: 1 });
+    return results.length > 0 ? results[0] : undefined;
   }
 
   order(order, append = false) {
