@@ -137,16 +137,15 @@ test('Single WithoutRecord', async () => {
 
 test('RelatedField HasMany', async () => {
   const connection = createConnection();
-  const results = await connection.class.all.filter({ name: 'Year 3' }).values();
-  const students = await results[0].students();
+  const result = await connection.class.all.filter({ name: 'Year 3' }).single();
+  const students = await result.students();
   const names = students.map((student) => student.name).sort();
   expect(names).toEqual(['Alison', 'Troy']);
 });
 
 test('RelatedField HasOne', async () => {
   const connection = createConnection();
-  const results = await connection.students.all.filter({ name: 'Troy' }).single();
-  const students = await results[0].students();
-  const names = students.map((student) => student.name).sort();
-  expect(names).toEqual(['Alison', 'Troy']);
+  const result = await connection.student.all.filter({ name: 'Troy' }).single();
+  const studentClass = await result.class();
+  expect(studentClass.name).toEqual('Year 3');
 });

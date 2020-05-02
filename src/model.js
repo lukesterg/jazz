@@ -38,7 +38,7 @@ const getRelatedField = (field, models) => {
   return { relatedFieldName, relatedModelName, relatedField };
 };*/
 
-const generateRelatedFieldQuery = (fieldNameName, fieldValue, result, models, queryGenerator) => {
+const generateRelatedFieldQuery = (fieldNameName, fieldValue, result, queryGenerator) => {
   if (fieldValue.type === 'hasMany') {
     return queryGenerator(fieldValue.relatedModel, fieldValue.relatedField, result.id);
   } else if (fieldValue.type === 'hasOne') {
@@ -53,15 +53,16 @@ export const addRelatedFieldsToResult = (modelName, result, models, queryGenerat
   for (const [relatedFieldName, relatedFieldValue] of relatedFields) {
     const existingValue = result[relatedFieldName];
     if (existingValue) {
-      result[`${relatedFieldName}_id`] = existingValue;
+      result[`${relatedFieldName}__id`] = existingValue;
     }
 
-    const query = generateRelatedFieldQuery(relatedFieldName, relatedFieldValue, result, models, queryGenerator);
-    wrapForeignKey(result, relatedFieldName, query);
+    const query = generateRelatedFieldQuery(relatedFieldName, relatedFieldValue, result, queryGenerator);
+    const single = relatedFieldValue.type === hasOneType;
+    wrapForeignKey(result, relatedFieldName, query, single);
   }
 };
 
-const wrapForeignKey = (result, fieldName, query) => {
+const wrapForeignKey = (result, fieldName, query, single) => {
   let queryResult;
   let resultFetched = false;
 
@@ -71,7 +72,7 @@ const wrapForeignKey = (result, fieldName, query) => {
     }
 
     resultFetched = true;
-    queryResult = query.values();
+    queryResult = single ? query.single() : query.values();
     return queryResult;
   };
 
@@ -81,7 +82,6 @@ const wrapForeignKey = (result, fieldName, query) => {
     return value;
   };
 
-  // defined properties do not appear in the object. Such as Object.enumerable
   Object.defineProperty(result, fieldName, {
     // if we do a fetch it will be async, so we cannot use properties as would be expected.
     value: (value) => {
@@ -92,6 +92,7 @@ const wrapForeignKey = (result, fieldName, query) => {
       set(value);
       return value;
     },
+    enumerable: false,
   });
 };
 
