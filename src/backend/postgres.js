@@ -33,10 +33,11 @@ const query = async (filter, connection) => {
 
   const where = generateWhere(filter.where, { escapeField });
   const wherePrefix = where.length > 0 ? ' where ' : '';
-  const endSql = generateOrder(filter.order);
-  const endPrefix = endSql.length > 0 ? ' ' : '';
+  const orderSql = generateOrder(filter.order);
+  const orderPrefix = orderSql.length > 0 ? ' ' : '';
+  const limitSql = filter.limit >= 0 ? ` limit ${filter.limit}` : '';
 
-  return runSql(joinSql([startSql, wherePrefix, where, endPrefix, endSql]), filter.flat, connection);
+  return runSql(joinSql([startSql, wherePrefix, where, orderPrefix, orderSql, limitSql]), filter.flat, connection);
 };
 
 const generateOrder = (order) => {

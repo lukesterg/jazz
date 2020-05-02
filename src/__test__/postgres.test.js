@@ -117,9 +117,26 @@ test('Filter Where IsNotNull', async () => {
   expect(results).toEqual(['Year 5']);
 });
 
+test('Filter Limit', async () => {
+  const connection = createConnection();
+  const results = await connection.class.all
+    .filter({ helper__isnull: true })
+    .order(['name'])
+    .values(['name'], { flat: true, limit: 1 });
+  expect(results).toEqual(['Year 3']);
+});
+
 test('RelatedField HasMany', async () => {
   const connection = createConnection();
   const results = await connection.class.all.filter({ name: 'Year 3' }).values();
+  const students = await results[0].students();
+  const names = students.map((student) => student.name).sort();
+  expect(names).toEqual(['Alison', 'Troy']);
+});
+
+test('RelatedField HasOne', async () => {
+  const connection = createConnection();
+  const results = await connection.students.all.filter({ name: 'Troy' }).single();
   const students = await results[0].students();
   const names = students.map((student) => student.name).sort();
   expect(names).toEqual(['Alison', 'Troy']);

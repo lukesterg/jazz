@@ -6,6 +6,7 @@
  *  models: models to inner join.
  *  optionalModels: models (also in models) however need to be joined using a left join.
  *  where (optional): query if not present all fields are to be selected.
+ *  limit (optional): maximum number of items to fetch.
  *  order: [field: <field>, order: <asc|desc>], ...]
  *  distinct: false,
  *  flat: false,
@@ -267,6 +268,12 @@ const order = (order, append, existingQuery) => {
   return query;
 };
 
+const limit = (amount, existingQuery) => {
+  const query = extendQuery(existingQuery);
+  query.limit = amount;
+  return query;
+};
+
 const defaultValueOptions = { distinct: false, flat: false };
 const values = (fields, options, existingQuery) => {
   const query = extendQuery(existingQuery);
@@ -301,4 +308,5 @@ export const query = {
   filter: queryFilter,
   order,
   values,
+  limit,
 };

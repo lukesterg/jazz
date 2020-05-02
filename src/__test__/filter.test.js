@@ -255,3 +255,8 @@ test('Value FlatValuesOffByDefault', () => {
   const valueQuery = runValues(['name']);
   expect(valueQuery.flat).toBeFalsy();
 });
+
+test('Limit AddsLimit', () => {
+  const filterQuery = query.limit(2, startQuery());
+  expect(filterQuery.limit).toEqual(2);
+});

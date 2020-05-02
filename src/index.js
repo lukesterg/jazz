@@ -93,16 +93,22 @@ class Query {
       });
     };
 
+    let finalQuery = this._query;
+
+    if (options.limit > 0) {
+      finalQuery = query.limit(options.limit, finalQuery);
+    }
+
     if (!fields) {
-      return await runQuery(this._query);
+      return await runQuery(finalQuery);
     }
 
     if (typeof fields === 'string') {
       fields = [fields];
     }
 
-    const valueQuery = query.values(fields, options, this._query);
-    return await runQuery(valueQuery);
+    finalQuery = query.values(fields, options, finalQuery);
+    return await runQuery(finalQuery);
   }
 
   order(order, append = false) {
