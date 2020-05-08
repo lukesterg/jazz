@@ -149,3 +149,21 @@ test('RelatedField HasOne', async () => {
   const studentClass = await result.class();
   expect(studentClass.name).toEqual('Year 3');
 });
+
+test('FindBy HasOneField', async () => {
+  const connection = createConnection();
+  const result = await connection.student.all
+    .filter({ class__name: 'Year 3' })
+    .order('name')
+    .values('name', { flat: true });
+  expect(result).toEqual(['Alison', 'Troy']);
+});
+
+test.only('FindBy HasManyField', async () => {
+  const connection = createConnection();
+  const result = await connection.class.all
+    .filter({ students__name: 'Alison' })
+    .order('name')
+    .values('name', { flat: true });
+  expect(result).toEqual('Year 3');
+});

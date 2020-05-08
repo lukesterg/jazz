@@ -69,6 +69,8 @@ const generateOrder = (order) => {
 const runSql = async (sql, flat, connection) => {
   const [fullSql, values] = sqlArrayToEscaped(sql, (index) => `$${index + 1}`);
 
+  console.log(fullSql);
+
   const results = await connection.query({
     rowMode: flat ? 'array' : 'objects',
     values,
