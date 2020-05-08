@@ -38,11 +38,13 @@ const getRelatedField = (field, models) => {
   return { relatedFieldName, relatedModelName, relatedField };
 };*/
 
-const generateRelatedFieldQuery = (fieldNameName, fieldValue, result, queryGenerator) => {
+const generateRelatedFieldQuery = (fieldNameName, fieldValue, result, models, queryGenerator) => {
+  const { relatedModel } = fieldValue;
   if (fieldValue.type === 'hasMany') {
-    return queryGenerator(fieldValue.relatedModel, fieldValue.relatedField, result.id);
+    return queryGenerator(relatedModel, fieldValue.relatedField, result.id);
   } else if (fieldValue.type === 'hasOne') {
-    return queryGenerator(fieldValue.relatedModel, 'id', result[`${fieldNameName}__id`]);
+    const relatedModelPrimaryKeyName = getPrimaryKeyFromModel(models[relatedModel]);
+    return queryGenerator(relatedModel, relatedModelPrimaryKeyName, result[`${fieldNameName}__id`]);
   } else {
     throw new Error(`unknown field type ${fieldValue.type}`);
   }
@@ -56,7 +58,7 @@ export const addRelatedFieldsToResult = (modelName, result, models, queryGenerat
       result[`${relatedFieldName}__id`] = existingValue;
     }
 
-    const query = generateRelatedFieldQuery(relatedFieldName, relatedFieldValue, result, queryGenerator);
+    const query = generateRelatedFieldQuery(relatedFieldName, relatedFieldValue, result, models, queryGenerator);
     const single = relatedFieldValue.type === hasOneType;
     wrapForeignKey(result, relatedFieldName, query, single);
   }
@@ -94,6 +96,15 @@ const wrapForeignKey = (result, fieldName, query, single) => {
     },
     enumerable: false,
   });
+};
+
+export const getPrimaryKeyFromModel = (model) => {
+  const primaryKey = Object.entries(model).find((field) => field[1].primaryKey);
+  if (!primaryKey) {
+    throw new Error('failed to find primary key');
+  }
+
+  return primaryKey[0];
 };
 
 /*

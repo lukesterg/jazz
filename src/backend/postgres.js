@@ -20,7 +20,10 @@ const convertField = (field) => {
 };
 
 const query = async (filter, connection) => {
-  const fields = filter.fields.length === 0 ? '*' : filter.fields.map((field) => convertField(field)).join(', ');
+  const fields =
+    filter.fields.length === 0
+      ? `${escapeTableOrField(filter.primaryModel)}.*`
+      : filter.fields.map((field) => convertField(field)).join(', ');
   const startSql = [
     'select',
     filter.distinct ? 'distinct' : '',
@@ -33,11 +36,25 @@ const query = async (filter, connection) => {
 
   const where = generateWhere(filter.where, { escapeField });
   const wherePrefix = where.length > 0 ? ' where ' : '';
+
+  const options = { escapeField, escapeTable: escapeTableOrField };
+
+  const joinModels = filter.models.map(
+    ([newModel, existingModelKey, newModelKey]) =>
+      ` LEFT JOIN ${options.escapeTable(newModel)} ON ${options.escapeField(existingModelKey)} = ${options.escapeField(
+        newModelKey
+      )}`
+  );
+
   const orderSql = generateOrder(filter.order);
   const orderPrefix = orderSql.length > 0 ? ' ' : '';
   const limitSql = filter.limit >= 0 ? ` limit ${filter.limit}` : '';
 
-  return runSql(joinSql([startSql, wherePrefix, where, orderPrefix, orderSql, limitSql]), filter.flat, connection);
+  return runSql(
+    joinSql([startSql, joinModels, wherePrefix, where, orderPrefix, orderSql, limitSql]),
+    filter.flat,
+    connection
+  );
 };
 
 const generateOrder = (order) => {

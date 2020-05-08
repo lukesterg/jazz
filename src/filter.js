@@ -3,7 +3,7 @@
  * The output of the filter should be in the following form:
  * {
  *  fields: [{ type: <field or aggregation type>, field: [<model>, <key>]}],
- *  models: models to inner join.
+ *  models: models to inner join (including how to join them), these are stored as JSON strings.
  *  optionalModels: models (also in models) however need to be joined using a left join.
  *  where (optional): query if not present all fields are to be selected.
  *  limit (optional): maximum number of items to fetch.
@@ -21,7 +21,7 @@
  */
 
 import { getLastEntry, distinct, flattenMultiArray } from './utilities';
-import { hasManyType, hasOne, hasOneType } from './model';
+import { getPrimaryKeyFromModel, hasManyType, isRelatedField } from './model';
 
 const equals = 'eq';
 const notEquals = 'neq';
@@ -39,28 +39,18 @@ const or = 'or';
 export const filterConditions = [equals, notEquals, lessThan, lessThanEqual, greaterThan, greatThanEqual, isNull];
 const isFilterCondition = (value) => filterConditions.indexOf(value.toLowerCase()) >= 0;
 
-const getPrimaryKeyFromModel = (model) => {
-  const primaryKey = Object.entries(model).find((field) => field[1].primaryKey);
-  if (!primaryKey) {
-    throw new Error('failed to find primary key');
-  }
-
-  return primaryKey[0];
-};
-
 const splitFilterKey = (filterKey) => filterKey.split('__');
 
 /*
  * Simplify filter converts a singular filter in to an array.
  * The field entry in the return contains the model name and the field in form [ <model name>, <field name> ].
  * Example:
- *  ({ name: 'bob', student__age: 10}, 'class', { <full model> });
+ *  ({ name: 'bob', students__age: 10}, 'class', { <full model> });
  * Into:
  *  {
- *    models: [ <list of models used in query> ],
+ *    models: [ <list of models used in query (including how to join them)> ],
  *    where: [
- *      { field: ['class', 'bob'], condition: 'eq', value: 'bob' },
- *      { field: ['student', 'bob'], condition: 'eq', value: 'bob' },
+ *      { field: ['student', 'age'], condition: 'eq', value: 10 },
  *    ]
  *  }
  */
@@ -68,8 +58,8 @@ const simplifyFilter = (() => {
   const allowedConditionsForModel = [isNull, equals, notEquals];
   const isAllowedConditionForModel = (condition) => allowedConditionsForModel.indexOf(condition) >= 0;
 
-  const isValidValue = (condition, value, isModel) => {
-    if (isModel) {
+  const isValidValue = (condition, value, isARelation) => {
+    if (isARelation) {
       return isAllowedConditionForModel(condition);
     }
 
@@ -82,52 +72,89 @@ const simplifyFilter = (() => {
     }
   };
 
-  return (filter, { primaryModel, schema }) => {
-    const models = new Set();
+  return (filter, { primaryModel, schema, models: existingModels, optionalModels: existingOptionalModels }) => {
+    const models = new Set(existingModels.map(JSON.stringify));
+    const optionalModels = new Set(existingOptionalModels.map(JSON.stringify));
     const where = [];
 
     for (let [flatKey, value] of Object.entries(filter)) {
       const keys = [primaryModel, ...splitFilterKey(flatKey)];
+
       let lastEntry = getLastEntry(keys);
       let condition = equals;
       if (isFilterCondition(lastEntry)) {
         condition = keys.pop();
-        lastEntry = getLastEntry(keys);
       }
 
-      const fieldDefinition = schema[lastEntry];
-      const isKeyAModel = fieldDefinition?.type === hasOneType;
-      if (!isValidValue(condition, value, isKeyAModel)) {
+      const isOptionalModel = lastEntry === isNull && value === true;
+      const [fieldModelName, fieldName] = getSelectedModelFromKey(
+        keys,
+        schema,
+        isOptionalModel ? optionalModels : models
+      );
+      const fieldModel = schema[fieldModelName];
+      const fieldSchema = fieldModel[fieldName];
+      const isManyRelation = fieldSchema && fieldSchema.type === hasManyType;
+
+      if (typeof value === 'object') {
+        const primaryKeyName = getPrimaryKeyFromModel(fieldModel);
+        value = value[primaryKeyName];
+      }
+
+      if (!isValidValue(condition, value, isManyRelation)) {
         throw new Error(
           `invalid value for model ${primaryModel} (condition is ${condition} and field may be ${lastEntry})`
         );
       }
 
-      if (isKeyAModel) {
-        const primaryKeyName = getPrimaryKeyFromModel(fieldDefinition);
-
-        keys.push(primaryKeyName);
-        if (value?.[primaryKeyName]) {
-          value = value?.[primaryKeyName];
-        }
-      }
-
-      keys.slice(0, keys.length - 1).forEach((model) => models.add(model));
-      const [fieldModel, fieldName] = keys.slice(-2);
-      if (schema[fieldModel]?.[fieldName] === undefined) {
-        throw new Error(`could not find field ${fieldName} in model ${fieldModel}`);
-      }
-
       where.push({
-        field: [fieldModel, fieldName],
+        field: [fieldModelName, fieldName],
         condition,
         value,
       });
     }
 
-    return { models: [...models], where };
+    return { models, optionalModels, where };
   };
 })();
+
+const getSelectedModelFromKey = (keys, schema, models) => {
+  let currentModel, modelName;
+  const updateModel = (newModelName) => {
+    currentModel = schema[newModelName];
+    if (!currentModel) {
+      throw new Error(`could not find the model ${newModelName} when passing a related filter`);
+    }
+
+    modelName = newModelName;
+  };
+
+  updateModel(keys[0]);
+  for (const [index, key] of keys.slice(1).entries()) {
+    // first item is missing because of slice
+    const lastEntry = index === keys.length - 2;
+
+    const field = currentModel[key];
+    if (!field || !isRelatedField(field)) {
+      if (lastEntry) {
+        return [modelName, key];
+      }
+
+      throw new Error(`expected field ${key} to be a related field`);
+    }
+
+    const relatedField = field.relatedModel === hasManyType ? field.relatedField : getPrimaryKeyFromModel(currentModel);
+    const join = [field.relatedModel, [modelName, key], [field.relatedModel, relatedField]];
+    // stringify to ensure unique joins
+    models.add(JSON.stringify(join));
+
+    updateModel(field.relatedModel);
+  }
+
+  // last entry was a related field so use the primary key
+  const fieldName = getPrimaryKeyFromModel(currentModel);
+  return [modelName, fieldName];
+};
 
 const extendQuery = (existingQuery) => {
   if (!existingQuery) {
@@ -136,16 +163,6 @@ const extendQuery = (existingQuery) => {
 
   return Object.assign({}, existingQuery);
 };
-
-const modelsWherePrimaryKeyIsNull = (where, allModels) =>
-  where
-    .filter(
-      (query) =>
-        query.condition === 'isnull' &&
-        query.value === true &&
-        getPrimaryKeyFromModel(allModels[query.field[0]]) === query.field[1]
-    )
-    .map((query) => query.field[0]);
 
 const createOrExtendExpression = (type, fields, innerConditions, currentExpression) => {
   if (fields.length === 0 && innerConditions.length === 0) {
@@ -189,15 +206,10 @@ const queryFilter = (filters, existingQuery) => {
   const whereOr = [];
 
   for (const filter of filters) {
-    const { models, where } = simplifyFilter(filter, query);
+    const { models, where, optionalModels } = simplifyFilter(filter, query);
     whereOr.push(where);
-    query.optionalModels = distinct([
-      ...query.optionalModels,
-      ...modelsWherePrimaryKeyIsNull(where, existingQuery.schema),
-    ]);
-    query.models = distinct(query.models.concat(models)).filter(
-      (model) => query.optionalModels.indexOf(model) < 0 && model != existingQuery.primaryModel
-    );
+    query.models = [...models].map(JSON.parse);
+    query.optionalModels = [...optionalModels].filter((entry) => !models.has(entry)).map(JSON.parse);
   }
 
   if (whereOr.length == 1) {

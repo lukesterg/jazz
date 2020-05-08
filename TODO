@@ -6,6 +6,7 @@ Insert and update
 Model validations
 Sql interceptor for logging sql
 Non-database fields (email, url, etc.)
+Multi-tenant
 Documentation and examples
 Cache processing of schema?
 Cache processing of results? Should class.students.class be another query?

@@ -16,7 +16,7 @@ export const defaultModels = {
     class: hasOne('class'),
 
     // TODO: remove relatedField
-    address: hasMany('address', { relatedField: 'student' }),
+    address: hasOne('address'),
   },
   address: {
     id: number({ primaryKey: true }),
