@@ -1,4 +1,4 @@
-import { createModels, number, hasOne, hasMany } from '../model';
+import { number, hasOne, hasMany } from '../model';
 
 export const defaultModels = {
   class: {
@@ -7,16 +7,20 @@ export const defaultModels = {
     teacher: {},
     funding: {},
     helper: {},
+    students: hasMany('student', { relatedField: 'class' }),
   },
   student: {
     id: number({ primaryKey: true }),
     name: {},
     age: {},
+    class: hasOne('class'),
+
+    // TODO: remove relatedField
     address: hasOne('address'),
   },
   address: {
     id: number({ primaryKey: true }),
     city: {},
-    student: hasMany('student'),
+    student: hasMany('student', { relatedField: 'address' }),
   },
 };

@@ -62,47 +62,55 @@ test('FieldCondition IsNull', () => {
 });
 
 test('JoinModel', () => {
-  const filterQuery = runFilter({ student__name: 'Fred' });
-  expect(filterQuery.models).toEqual(['student']);
+  const filterQuery = runFilter({ students__name: 'Fred' });
+  expect(filterQuery.models).toEqual([['student', ['class', 'id'], ['student', 'class']]]);
   expect(filterQuery.where.fields).toEqual([{ field: ['student', 'name'], condition: 'eq', value: 'Fred' }]);
 });
 
 test('JoinModel MultipleModels', () => {
-  const filterQuery = runFilter({ student__address__city: 'Darwin' });
-  expect(filterQuery.models).toEqual(['student', 'address']);
+  const filterQuery = runFilter({ students__address__city: 'Darwin' });
+  expect(filterQuery.models).toEqual([
+    ['student', ['class', 'id'], ['student', 'class']],
+    ['address', ['student', 'address'], ['address', 'id']],
+  ]);
   expect(filterQuery.where.fields).toEqual([{ field: ['address', 'city'], condition: 'eq', value: 'Darwin' }]);
 });
 
 test('JoinModel WithCondition', () => {
-  const filterQuery = runFilter({ student__age__gte: 10 });
+  const filterQuery = runFilter({ students__age__gte: 10 });
   expect(filterQuery.where.fields).toEqual([{ field: ['student', 'age'], condition: 'gte', value: 10 }]);
 });
 
 test('JoinModel MultipleModels ReusingModels', () => {
-  const filterQuery = runFilter({ student__address__city: 'Darwin', student__age__gte: 10 });
+  const filterQuery = runFilter({ students__address__city: 'Darwin', students__age__gte: 10 });
   expect(filterQuery.where.fields).toEqual([
     { field: ['address', 'city'], condition: 'eq', value: 'Darwin' },
     { field: ['student', 'age'], condition: 'gte', value: 10 },
   ]);
 });
 
-test('CanMatch OnRelation', () => {
+test('CanMatch OnRelation UsingObject', () => {
   const student = { id: 3 };
-  const filterQuery = runFilter({ student });
+  const filterQuery = runFilter({ students: student });
+  expect(filterQuery.where.fields).toEqual([{ field: ['student', 'id'], condition: 'eq', value: 3 }]);
+});
+
+test('CanMatch OnRelation UsingId', () => {
+  const filterQuery = runFilter({ students: 3 });
   expect(filterQuery.where.fields).toEqual([{ field: ['student', 'id'], condition: 'eq', value: 3 }]);
 });
 
 test('CanMatch NoRelation', () => {
-  const filterQuery = runFilter({ student__isnull: true });
+  const filterQuery = runFilter({ students__isnull: true });
   expect(filterQuery.models).toEqual([]);
-  expect(filterQuery.optionalModels).toEqual(['student']);
+  expect(filterQuery.optionalModels).toEqual([['student', ['class', 'id'], ['student', 'class']]]);
   expect(filterQuery.where.fields).toEqual([{ field: ['student', 'id'], condition: 'isnull', value: true }]);
 });
 
 test('CanMatch NoRelation SpecifyingPrimaryKey', () => {
-  const filterQuery = runFilter({ student__id__isnull: true });
+  const filterQuery = runFilter({ students__id__isnull: true });
   expect(filterQuery.models).toEqual([]);
-  expect(filterQuery.optionalModels).toEqual(['student']);
+  expect(filterQuery.optionalModels).toEqual([['student', ['class', 'id'], ['student', 'class']]]);
   expect(filterQuery.where.fields).toEqual([{ field: ['student', 'id'], condition: 'isnull', value: true }]);
 });
 
@@ -119,7 +127,7 @@ test('OrCondition', () => {
 });
 
 test('OrCondition MultipleOrs OrWithAnd', () => {
-  const filterQuery = runFilter([{ name: 'Year 3' }, { student__name: 'Sam', student__age__gte: 10 }]);
+  const filterQuery = runFilter([{ name: 'Year 3' }, { students__name: 'Sam', students__age__gte: 10 }]);
   expect(filterQuery.where).toEqual({
     type: 'or',
     fields: [{ field: ['class', 'name'], condition: 'eq', value: 'Year 3' }],
@@ -137,7 +145,7 @@ test('OrCondition MultipleOrs OrWithAnd', () => {
 });
 
 test('OrCondition MultipleFilters BothWithOrsAndAnds', () => {
-  const initialQuery = runFilter([{ name: 'Year 3' }, { student__name: 'Sam', student__age__gte: 10 }]);
+  const initialQuery = runFilter([{ name: 'Year 3' }, { students__name: 'Sam', students__age__gte: 10 }]);
   const filterQuery = runFilter([{ name: 'Year 5' }, { teacher: 'Sam' }], initialQuery);
 
   expect(filterQuery.where).toEqual({
@@ -254,4 +262,9 @@ test('Value FlatValues', () => {
 test('Value FlatValuesOffByDefault', () => {
   const valueQuery = runValues(['name']);
   expect(valueQuery.flat).toBeFalsy();
+});
+
+test('Limit AddsLimit', () => {
+  const filterQuery = query.limit(2, startQuery());
+  expect(filterQuery.limit).toEqual(2);
 });
