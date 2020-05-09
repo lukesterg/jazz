@@ -5,7 +5,7 @@ export const hasManyType = 'hasMany';
 
 export const meta = Symbol();
 
-const field = (type, typeOptions, userOptions) =>
+const defineField = (type, typeOptions, userOptions) =>
   Object.assign(
     {
       type,
@@ -16,10 +16,22 @@ const field = (type, typeOptions, userOptions) =>
     userOptions || {}
   );
 
-export const text = (userOptions) => field(textType, {}, userOptions);
-export const number = (userOptions) => field(numberType, {}, userOptions);
-export const hasOne = (relatedModel, userOptions) => field(hasOneType, { relatedModel }, userOptions);
-export const hasMany = (relatedModel, userOptions) => field(hasManyType, { relatedModel }, userOptions);
+export const field = {
+  text: (userOptions) => defineField(textType, {}, userOptions),
+  number: (userOptions) => defineField(numberType, {}, userOptions),
+  hasOne: (relatedModel, userOptions) => defineField(hasOneType, { relatedModel }, userOptions),
+  hasMany: (relatedModel, userOptions) => defineField(hasManyType, { relatedModel }, userOptions),
+};
+
+const defineAggregation = (type, field) => ({ type, field });
+
+export const aggregation = {
+  count: (field) => defineAggregation('count', field),
+  min: (field) => defineAggregation('min', field),
+  max: (field) => defineAggregation('max', field),
+  average: (field) => defineAggregation('average', field),
+  sum: (field) => defineAggregation('sum', field),
+};
 
 const relatedFieldTypes = [hasOneType, hasManyType];
 

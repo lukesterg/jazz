@@ -3,6 +3,8 @@ import { createBackend } from './backend';
 import { query } from './filter';
 import { addRelatedFieldsToResult } from './model';
 
+export { field, aggregation } from './model';
+
 /**
  * Database state is comprised of:
  *  backend - database backend such as postgres
