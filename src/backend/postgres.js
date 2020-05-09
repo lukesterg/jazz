@@ -39,12 +39,19 @@ const query = async (filter, connection) => {
 
   const options = { escapeField, escapeTable: escapeTableOrField };
 
-  const joinModels = filter.models.map(
-    ([newModel, existingModelKey, newModelKey]) =>
-      ` LEFT JOIN ${options.escapeTable(newModel)} ON ${options.escapeField(existingModelKey)} = ${options.escapeField(
-        newModelKey
-      )}`
-  );
+  const joinTable = (models, joinType) =>
+    models
+      .map(
+        ([newModel, existingModelKey, newModelKey]) =>
+          ` ${joinType} JOIN ${options.escapeTable(newModel)} ON ${options.escapeField(
+            existingModelKey
+          )} = ${options.escapeField(newModelKey)}`
+      )
+      .join('');
+
+  const mustJoin = joinTable(filter.models, 'INNER');
+  const optionalJoin = joinTable(filter.optionalModels, 'LEFT');
+  const joinModels = mustJoin + optionalJoin;
 
   const orderSql = generateOrder(filter.order);
   const orderPrefix = orderSql.length > 0 ? ' ' : '';
@@ -68,8 +75,6 @@ const generateOrder = (order) => {
 
 const runSql = async (sql, flat, connection) => {
   const [fullSql, values] = sqlArrayToEscaped(sql, (index) => `$${index + 1}`);
-
-  console.log(fullSql);
 
   const results = await connection.query({
     rowMode: flat ? 'array' : 'objects',

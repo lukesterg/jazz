@@ -72,7 +72,7 @@ class Query {
     return new Query(query, this._databaseState);
   }
 
-  filter(filter) {
+  filter(...filter) {
     return this._newFilter(query.filter(filter, this._query));
   }
 

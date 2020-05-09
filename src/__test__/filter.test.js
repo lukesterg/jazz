@@ -63,14 +63,14 @@ test('FieldCondition IsNull', () => {
 
 test('JoinModel', () => {
   const filterQuery = runFilter({ students__name: 'Fred' });
-  expect(filterQuery.models).toEqual([['student', ['class', 'students'], ['student', 'id']]]);
+  expect(filterQuery.models).toEqual([['student', ['class', 'id'], ['student', 'class']]]);
   expect(filterQuery.where.fields).toEqual([{ field: ['student', 'name'], condition: 'eq', value: 'Fred' }]);
 });
 
 test('JoinModel MultipleModels', () => {
   const filterQuery = runFilter({ students__address__city: 'Darwin' });
   expect(filterQuery.models).toEqual([
-    ['student', ['class', 'students'], ['student', 'id']],
+    ['student', ['class', 'id'], ['student', 'class']],
     ['address', ['student', 'address'], ['address', 'id']],
   ]);
   expect(filterQuery.where.fields).toEqual([{ field: ['address', 'city'], condition: 'eq', value: 'Darwin' }]);
@@ -103,14 +103,14 @@ test('CanMatch OnRelation UsingId', () => {
 test('CanMatch NoRelation', () => {
   const filterQuery = runFilter({ students__isnull: true });
   expect(filterQuery.models).toEqual([]);
-  expect(filterQuery.optionalModels).toEqual([['student', ['class', 'students'], ['student', 'id']]]);
+  expect(filterQuery.optionalModels).toEqual([['student', ['class', 'id'], ['student', 'class']]]);
   expect(filterQuery.where.fields).toEqual([{ field: ['student', 'id'], condition: 'isnull', value: true }]);
 });
 
 test('CanMatch NoRelation SpecifyingPrimaryKey', () => {
   const filterQuery = runFilter({ students__id__isnull: true });
   expect(filterQuery.models).toEqual([]);
-  expect(filterQuery.optionalModels).toEqual([['student', ['class', 'students'], ['student', 'id']]]);
+  expect(filterQuery.optionalModels).toEqual([['student', ['class', 'id'], ['student', 'class']]]);
   expect(filterQuery.where.fields).toEqual([{ field: ['student', 'id'], condition: 'isnull', value: true }]);
 });
 

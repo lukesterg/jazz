@@ -159,11 +159,59 @@ test('FindBy HasOneField', async () => {
   expect(result).toEqual(['Alison', 'Troy']);
 });
 
-test.only('FindBy HasManyField', async () => {
+test('FindBy HasManyField', async () => {
   const connection = createConnection();
   const result = await connection.class.all
     .filter({ students__name: 'Alison' })
     .order('name')
     .values('name', { flat: true });
-  expect(result).toEqual('Year 3');
+  expect(result).toEqual(['Year 3']);
+});
+
+test('FindBy MultipleLevelsOfRelatedFields', async () => {
+  const connection = createConnection();
+  const results = await connection.class.all
+    .filter({ students__address__city: 'Moil' })
+    .values('name', { flat: true, distinct: true });
+  expect(results).toEqual(['Year 3']);
+});
+
+test('FindBy NotRelated', async () => {
+  const connection = createConnection();
+  const results = await connection.student.all.filter({ address__isnull: true }).values('name', { flat: true });
+  expect(results).toEqual(['John']);
+});
+
+test('FindBy NotRelated AndRelated', async () => {
+  const connection = createConnection();
+  const results = await connection.student.all
+    .filter({ address__isnull: true }, { address__city: 'Moil' })
+    .values('name', { flat: true });
+  expect(results).toEqual(['Troy', 'Alison', 'John']);
+});
+
+test('FindBy MultipleRelations InSameModel', async () => {
+  const connection = createConnection();
+  const results = await connection.class.all
+    .filter({ students__name: 'Troy', students__age: 5 })
+    .values('name', { flat: true });
+  expect(results).toEqual(['Year 3']);
+});
+
+test('FindBy MultipleRelations InDifferentModels', async () => {
+  const connection = createConnection();
+  const results = await connection.student.all
+    .filter({ class__name: 'Year 3', address__city: 'Moil' })
+    .values('name', { flat: true });
+  expect(results).toEqual(['Troy', 'Alison']);
+});
+
+test('FindBy RelationObject', async () => {
+  const connection = createConnection();
+  const existingClass = await connection.class.all.filter({ name: 'Year 3' }).single();
+  const students = await connection.student.all
+    .filter({ class: existingClass })
+    .order('name')
+    .values('name', { flat: true });
+  expect(students).toEqual(['Alison', 'Troy']);
 });

@@ -143,8 +143,19 @@ const getSelectedModelFromKey = (keys, schema, models) => {
       throw new Error(`expected field ${key} to be a related field`);
     }
 
-    const relatedField = field.relatedModel === hasManyType ? field.relatedField : getPrimaryKeyFromModel(currentModel);
-    const join = [field.relatedModel, [modelName, key], [field.relatedModel, relatedField]];
+    const join =
+      field.type === hasManyType
+        ? [
+            field.relatedModel,
+            [modelName, getPrimaryKeyFromModel(currentModel)],
+            [field.relatedModel, field.relatedField],
+          ]
+        : [
+            field.relatedModel,
+            [modelName, key],
+            [field.relatedModel, getPrimaryKeyFromModel(schema[field.relatedModel])],
+          ];
+
     // stringify to ensure unique joins
     models.add(JSON.stringify(join));
 
@@ -208,8 +219,8 @@ const queryFilter = (filters, existingQuery) => {
   for (const filter of filters) {
     const { models, where, optionalModels } = simplifyFilter(filter, query);
     whereOr.push(where);
-    query.models = [...models].map(JSON.parse);
-    query.optionalModels = [...optionalModels].filter((entry) => !models.has(entry)).map(JSON.parse);
+    query.optionalModels = [...optionalModels].map(JSON.parse);
+    query.models = [...models].filter((entry) => !optionalModels.has(entry)).map(JSON.parse);
   }
 
   if (whereOr.length == 1) {
