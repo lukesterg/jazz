@@ -1,9 +1,7 @@
 import { register as registerPostgres } from './backend/postgres';
 import { createBackend } from './backend';
 import { query } from './filter';
-import { addRelatedFieldsToResult } from './model';
-
-export { field, aggregation } from './model';
+import { addRelatedFieldsToResult, field, aggregation, aggregationSymbol } from './model';
 
 /**
  * Database state is comprised of:
@@ -95,7 +93,7 @@ class Query {
       });
     };
 
-    if (typeof fields === 'string') {
+    if (typeof fields === 'string' || (fields && fields[aggregationSymbol])) {
       fields = [fields];
     } else if (typeof fields === 'object' && !Array.isArray(fields) && !options) {
       fields = undefined;
@@ -153,4 +151,6 @@ export const JazzDb = {
   createDatabase,
   addSchema,
   getDatabase,
+  field,
+  aggregation,
 };

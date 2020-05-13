@@ -12,7 +12,7 @@ export const defaultModels = {
   student: {
     id: field.number({ primaryKey: true }),
     name: {},
-    age: {},
+    age: field.number(),
     class: field.hasOne('class'),
     address: field.hasOne('address'),
   },

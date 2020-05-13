@@ -215,3 +215,72 @@ test('FindBy RelationObject', async () => {
     .values('name', { flat: true });
   expect(students).toEqual(['Alison', 'Troy']);
 });
+
+test('Select RelatedField ManyToOne', async () => {
+  const connection = createConnection();
+  const classesWithStudents = await connection.student.all.values('class__name', { flat: true, distinct: true });
+  classesWithStudents.sort();
+  expect(classesWithStudents).toEqual(['Year 3', 'Year 4']);
+});
+
+test('Select RelatedField OneToMany', async () => {
+  const connection = createConnection();
+  const studentsInClasses = await connection.class.all.values('students__name', { flat: true, distinct: true });
+  studentsInClasses.sort();
+  // the null occurs because of an optional join. One class does not have any students.
+  expect(studentsInClasses).toEqual(['Alison', 'Joe', 'John', 'Troy', null]);
+});
+
+// In this instance there is a where condition creating an inner join. The values respects the inner join.
+test('Select RelatedField InnerJoinedByFilter', async () => {
+  const connection = createConnection();
+  const studentsInClasses = await connection.class.all
+    .filter({ students__age__lte: 10 })
+    .values('students__name', { flat: true, distinct: true });
+  studentsInClasses.sort();
+  expect(studentsInClasses).toEqual(['Alison', 'Joe', 'John', 'Troy']);
+});
+
+test('OrderBy RelatedField', async () => {
+  const connection = createConnection();
+  const classesWithStudents = await connection.class.all
+    .order('students__name')
+    .values('students__name', { flat: true, distinct: true });
+  expect(classesWithStudents).toEqual(['Alison', 'Joe', 'John', 'Troy', null]);
+});
+
+test('OrderBy RelatedField InnerJoinedByFilter', async () => {
+  const connection = createConnection();
+  const classesWithStudents = await connection.class.all
+    .filter({ students__age__lte: 10 })
+    .order('students__name')
+    .values('students__name', { flat: true, distinct: true });
+  expect(classesWithStudents).toEqual(['Alison', 'Joe', 'John', 'Troy']);
+});
+
+test('Aggregate Count AllRecords', async () => {
+  const connection = createConnection();
+  const studentCount = await connection.student.all.values(JazzDb.aggregation.count());
+  expect(studentCount).toEqual([{ all__count: '4' }]);
+});
+
+test('Aggregate Count Field', async () => {
+  const connection = createConnection();
+  const studentCount = await connection.class.all.values(JazzDb.aggregation.count('helper'));
+  expect(studentCount).toEqual([{ helper__count: '1' }]);
+});
+
+const aggregationTest = {
+  min: [JazzDb.aggregation.min, 5],
+  max: [JazzDb.aggregation.max, 10],
+  average: [JazzDb.aggregation.average, 7.25],
+  sum: [JazzDb.aggregation.sum, 29],
+};
+each(Object.keys(aggregationTest)).test('Aggregate %s Field', async (aggregationType) => {
+  const connection = createConnection();
+  const [aggregation, expectedResult] = aggregationTest[aggregationType];
+  const aggregationResult = await connection.student.all.values(aggregation('age'), { flat: true });
+
+  // decimal values and big ints are strings
+  expect(+aggregationResult[0]).toEqual(expectedResult);
+});

@@ -3,8 +3,8 @@
  * The output of the filter should be in the following form:
  * {
  *  fields: [{ type: <field or aggregation type>, field: [<model>, <key>]}],
- *  models: models to inner join (including how to join them), these are stored as JSON strings.
- *  optionalModels: models (also in models) however need to be joined using a left join.
+ *  models: models to inner join (including how to join them), these are stored in form [ join table, join key, related key ]
+ *  optionalModels: models however need to be joined using a left join.
  *  where (optional): query if not present all fields are to be selected.
  *  limit (optional): maximum number of items to fetch.
  *  order: [field: <field>, order: <asc|desc>], ...]
@@ -21,7 +21,7 @@
  */
 
 import { getLastEntry, distinct, flattenMultiArray } from './utilities';
-import { getPrimaryKeyFromModel, hasManyType, isRelatedField } from './model';
+import { getPrimaryKeyFromModel, hasManyType, isRelatedField, countType } from './model';
 
 const equals = 'eq';
 const notEquals = 'neq';
@@ -247,21 +247,6 @@ const orderMapping = {
   desc: descending,
 };
 
-const getModelAndKey = (rawKey, query) => {
-  const separatedKey = splitFilterKey(rawKey).slice(-2);
-  return separatedKey.length === 1 ? [query.primaryModel, separatedKey[0]] : separatedKey;
-};
-
-const getModelAndKeyAndValidateExists = (rawKey, query) => {
-  const [model, key] = getModelAndKey(rawKey, query);
-
-  if (!query.schema[model]?.[key]) {
-    throw new Error(`key ${key} does not exist on model ${model}`);
-  }
-
-  return [model, key];
-};
-
 const order = (order, append, existingQuery) => {
   const query = extendQuery(existingQuery);
 
@@ -271,7 +256,7 @@ const order = (order, append, existingQuery) => {
 
   const newOrder = order.map((entry) => {
     if (typeof entry === 'string') {
-      return { field: getModelAndKeyAndValidateExists(entry, existingQuery), order: ascending };
+      return { field: entry, order: ascending };
     }
 
     const [key, sortOrder] = entry;
@@ -279,7 +264,7 @@ const order = (order, append, existingQuery) => {
     if (!normalisedSortOrder) {
       throw new Error(`expected sort order of 'asc' or 'desc' but got ${sortOrder}`);
     }
-    return { field: getModelAndKeyAndValidateExists(key, existingQuery), order: normalisedSortOrder };
+    return { field: key, order: normalisedSortOrder };
   });
 
   if (append) {
@@ -287,6 +272,8 @@ const order = (order, append, existingQuery) => {
   } else {
     query.order = newOrder;
   }
+
+  updateFieldsToContainFullName(query.order, query);
 
   return query;
 };
@@ -298,6 +285,7 @@ const limit = (amount, existingQuery) => {
 };
 
 const defaultValueOptions = { distinct: false, flat: false };
+
 const values = (fields, options, existingQuery) => {
   const query = extendQuery(existingQuery);
   const completeOptions = Object.assign({}, defaultValueOptions, options);
@@ -308,11 +296,60 @@ const values = (fields, options, existingQuery) => {
 
   query.distinct = completeOptions.distinct;
   query.flat = completeOptions.flat;
-  query.fields = fields.map((field) => ({
-    type: 'field',
-    field: getModelAndKeyAndValidateExists(field, existingQuery),
-  }));
+  query.fields = fields.map((field) =>
+    typeof field === 'string'
+      ? {
+          type: 'field',
+          field,
+        }
+      : updateResultName(field)
+  );
+  updateFieldsToContainFullName(query.fields, query);
+
   return query;
+};
+
+const updateResultName = (field) => {
+  if (field.resultName) {
+    return field;
+  }
+
+  const copy = Object.assign({}, field);
+
+  if (!field.field) {
+    if (field.type === countType) {
+      copy.resultName = 'all__count';
+      return copy;
+    }
+
+    throw new Error(`${field.type} requires a field name`);
+  }
+
+  copy.resultName = `${field.field}__${field.type}`;
+  return copy;
+};
+
+const updateFieldsToContainFullName = (fields, query) => {
+  const relations = new Set();
+
+  for (const field of fields) {
+    if (typeof field.field !== 'string') {
+      continue;
+    }
+
+    const keys = [query.primaryModel, ...splitFilterKey(field.field)];
+    const [fieldModelName, fieldName] = getSelectedModelFromKey(keys, query.schema, relations);
+    field.field = [fieldModelName, fieldName];
+  }
+
+  (query.models || [])
+    .concat(query.optionalModels || [])
+    .map(JSON.stringify)
+    .filter((entry) => relations.has(entry))
+    .forEach((entry) => relations.delete(entry));
+
+  // if the model has not yet been specified add it as an optional join otherwise there will be missing records
+  query.optionalModels = query.optionalModels.concat([...relations].map(JSON.parse));
 };
 
 const start = (primaryModel, schema) => ({
