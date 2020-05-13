@@ -45,7 +45,7 @@ const generateFields = (filter) => {
 
   return {
     fields: selectFields.concat(aggregateFields).join(', '),
-    groupBy: selectFields,
+    groupBy: selectFields.join(', '),
   };
 };
 
@@ -96,8 +96,10 @@ const query = async (filter, connection) => {
   const orderPrefix = orderSql.length > 0 ? ' ' : '';
   const limitSql = filter.limit >= 0 ? ` limit ${filter.limit}` : '';
 
+  const groupByPrefix = groupBy.length > 0 ? ' group by ' : '';
+
   return runSql(
-    joinSql([startSql, joinModels, wherePrefix, where, groupBy, orderPrefix, orderSql, limitSql]),
+    joinSql([startSql, joinModels, wherePrefix, where, groupByPrefix, groupBy, orderPrefix, orderSql, limitSql]),
     filter.flat,
     connection
   );

@@ -270,6 +270,18 @@ test('Aggregate Count Field', async () => {
   expect(studentCount).toEqual([{ helper__count: '1' }]);
 });
 
+test('Aggregate Count Field WithGroupBy', async () => {
+  const connection = createConnection();
+  const aggregationResult = await connection.student.all
+    .order('class__name')
+    .values(['class__name', JazzDb.aggregation.count()]);
+
+  expect(aggregationResult).toEqual([
+    { name: 'Year 3', all__count: '2' },
+    { name: 'Year 4', all__count: '2' },
+  ]);
+});
+
 const aggregationTest = {
   min: [JazzDb.aggregation.min, 5],
   max: [JazzDb.aggregation.max, 10],
@@ -283,4 +295,48 @@ each(Object.keys(aggregationTest)).test('Aggregate %s Field', async (aggregation
 
   // decimal values and big ints are strings
   expect(+aggregationResult[0]).toEqual(expectedResult);
+});
+
+// prettier-ignore
+const aggregationWithGroupByTest = {
+  min: [JazzDb.aggregation.min, [['Year 3', 5], [ 'Year 4', 8]]],
+  max: [JazzDb.aggregation.max, [['Year 3', 6], [ 'Year 4', 10]]],
+  average: [JazzDb.aggregation.average, [['Year 3', 5.5], [ 'Year 4', 9]]],
+  sum: [JazzDb.aggregation.sum, [['Year 3', 11], [ 'Year 4', 18]]],
+};
+each(Object.keys(aggregationWithGroupByTest)).test('Aggregate %s Field WithGroupBy', async (aggregationType) => {
+  const connection = createConnection();
+  const [aggregation, expectedResult] = aggregationWithGroupByTest[aggregationType];
+  const aggregationResult = await connection.student.all
+    .order('class__name')
+    .values(['class__name', aggregation('age')], {
+      flat: true,
+    });
+
+  const aggregationResultWithNumbers = aggregationResult.map((i) => [i[0], +i[1]]);
+  expect(aggregationResultWithNumbers).toEqual(expectedResult);
+});
+
+test('Aggregate Related Field', async () => {
+  const connection = createConnection();
+  const aggregationResult = await connection.class.all.values(['name', JazzDb.aggregation.min('students__age')], {
+    flat: true,
+  });
+
+  expect(aggregationResult[0]).toEqual(['Year 3', 5]);
+});
+
+test('Aggregate Multiple Fields', async () => {
+  const connection = createConnection();
+  const aggregationResult = await connection.class.all
+    .filter({ name: 'Year 3' })
+    .order('students__name')
+    .values(['name', 'students__name', JazzDb.aggregation.min('students__age')], {
+      flat: true,
+    });
+
+  expect(aggregationResult).toEqual([
+    ['Year 3', 'Alison', 6],
+    ['Year 3', 'Troy', 5],
+  ]);
 });
