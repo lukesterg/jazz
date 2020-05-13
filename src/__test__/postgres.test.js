@@ -31,13 +31,13 @@ test('AllRecords ReturnsAllRows UsingAsyncIterator', async () => {
 
 test('Field ReturnSingleField', async () => {
   const connection = createConnection();
-  const results = await connection.class.all.order(['name']).values(['name']);
+  const results = await connection.class.all.order('name').values('name');
   expect(results).toEqual([{ name: 'Year 3' }, { name: 'Year 4' }, { name: 'Year 5' }]);
 });
 
 test('Field ReturnMultipleFields', async () => {
   const connection = createConnection();
-  const results = await connection.class.all.order(['name']).values(['name', 'teacher']);
+  const results = await connection.class.all.order('name').values('name', 'teacher');
   expect(results).toEqual([
     { name: 'Year 3', teacher: 'Sam' },
     { name: 'Year 4', teacher: 'Sam' },
@@ -53,7 +53,7 @@ test('Field ReturnSingleField Flat', async () => {
 
 test('Field ReturnMultipleFields Flat', async () => {
   const connection = createConnection();
-  const results = await connection.class.all.order('name').values(['name', 'teacher'], { flat: true });
+  const results = await connection.class.all.order('name').values('name', 'teacher', { flat: true });
   expect(results).toEqual([
     ['Year 3', 'Sam'],
     ['Year 4', 'Sam'],
@@ -94,8 +94,8 @@ each(Object.keys(conditionTests)).test('Filter Where "%s"', async (testName) => 
 
   const results = await connection.class.all
     .filter(filterExpression)
-    .order(['funding'])
-    .values(['funding'], { flat: true });
+    .order('funding')
+    .values('funding', { flat: true });
   expect(results.map((i) => +i)).toEqual(expectedResult);
 });
 
@@ -103,8 +103,8 @@ test('Filter Where IsNull', async () => {
   const connection = createConnection();
   const results = await connection.class.all
     .filter({ helper__isnull: true })
-    .order(['name'])
-    .values(['name'], { flat: true });
+    .order('name')
+    .values('name', { flat: true });
   expect(results).toEqual(['Year 3', 'Year 4']);
 });
 
@@ -112,20 +112,20 @@ test('Filter Where IsNotNull', async () => {
   const connection = createConnection();
   const results = await connection.class.all
     .filter({ helper__isnull: false })
-    .order(['name'])
-    .values(['name'], { flat: true });
+    .order('name')
+    .values('name', { flat: true });
   expect(results).toEqual(['Year 5']);
 });
 
 test('Filter Limit', async () => {
   const connection = createConnection();
-  const results = await connection.class.all.order(['name']).values(['name'], { flat: true, limit: 1 });
+  const results = await connection.class.all.order('name').values('name', { flat: true, limit: 1 });
   expect(results).toEqual(['Year 3']);
 });
 
 test('Single WithRecord', async () => {
   const connection = createConnection();
-  const result = await connection.class.all.filter({ helper__isnull: true }).order(['name']).single();
+  const result = await connection.class.all.filter({ helper__isnull: true }).order('name').single();
   expect(result.name).toEqual('Year 3');
 });
 
@@ -214,4 +214,129 @@ test('FindBy RelationObject', async () => {
     .order('name')
     .values('name', { flat: true });
   expect(students).toEqual(['Alison', 'Troy']);
+});
+
+test('Select RelatedField ManyToOne', async () => {
+  const connection = createConnection();
+  const classesWithStudents = await connection.student.all.values('class__name', { flat: true, distinct: true });
+  classesWithStudents.sort();
+  expect(classesWithStudents).toEqual(['Year 3', 'Year 4']);
+});
+
+test('Select RelatedField OneToMany', async () => {
+  const connection = createConnection();
+  const studentsInClasses = await connection.class.all.values('students__name', { flat: true, distinct: true });
+  studentsInClasses.sort();
+  // the null occurs because of an optional join. One class does not have any students.
+  expect(studentsInClasses).toEqual(['Alison', 'Joe', 'John', 'Troy', null]);
+});
+
+// In this instance there is a where condition creating an inner join. The values respects the inner join.
+test('Select RelatedField InnerJoinedByFilter', async () => {
+  const connection = createConnection();
+  const studentsInClasses = await connection.class.all
+    .filter({ students__age__lte: 10 })
+    .values('students__name', { flat: true, distinct: true });
+  studentsInClasses.sort();
+  expect(studentsInClasses).toEqual(['Alison', 'Joe', 'John', 'Troy']);
+});
+
+test('OrderBy RelatedField', async () => {
+  const connection = createConnection();
+  const classesWithStudents = await connection.class.all
+    .order('students__name')
+    .values('students__name', { flat: true, distinct: true });
+  expect(classesWithStudents).toEqual(['Alison', 'Joe', 'John', 'Troy', null]);
+});
+
+test('OrderBy RelatedField InnerJoinedByFilter', async () => {
+  const connection = createConnection();
+  const classesWithStudents = await connection.class.all
+    .filter({ students__age__lte: 10 })
+    .order('students__name')
+    .values('students__name', { flat: true, distinct: true });
+  expect(classesWithStudents).toEqual(['Alison', 'Joe', 'John', 'Troy']);
+});
+
+test('Aggregate Count AllRecords', async () => {
+  const connection = createConnection();
+  const studentCount = await connection.student.all.values(JazzDb.aggregation.count());
+  expect(studentCount).toEqual([{ all__count: '4' }]);
+});
+
+test('Aggregate Count Field', async () => {
+  const connection = createConnection();
+  const studentCount = await connection.class.all.values(JazzDb.aggregation.count('helper'));
+  expect(studentCount).toEqual([{ helper__count: '1' }]);
+});
+
+test('Aggregate Count Field WithGroupBy', async () => {
+  const connection = createConnection();
+  const aggregationResult = await connection.student.all
+    .order('class__name')
+    .values('class__name', JazzDb.aggregation.count());
+
+  expect(aggregationResult).toEqual([
+    { name: 'Year 3', all__count: '2' },
+    { name: 'Year 4', all__count: '2' },
+  ]);
+});
+
+const aggregationTest = {
+  min: [JazzDb.aggregation.min, 5],
+  max: [JazzDb.aggregation.max, 10],
+  average: [JazzDb.aggregation.average, 7.25],
+  sum: [JazzDb.aggregation.sum, 29],
+};
+each(Object.keys(aggregationTest)).test('Aggregate %s Field', async (aggregationType) => {
+  const connection = createConnection();
+  const [aggregation, expectedResult] = aggregationTest[aggregationType];
+  const aggregationResult = await connection.student.all.values(aggregation('age'), { flat: true });
+
+  // decimal values and big ints are strings
+  expect(+aggregationResult[0]).toEqual(expectedResult);
+});
+
+// prettier-ignore
+const aggregationWithGroupByTest = {
+  min: [JazzDb.aggregation.min, [['Year 3', 5], [ 'Year 4', 8]]],
+  max: [JazzDb.aggregation.max, [['Year 3', 6], [ 'Year 4', 10]]],
+  average: [JazzDb.aggregation.average, [['Year 3', 5.5], [ 'Year 4', 9]]],
+  sum: [JazzDb.aggregation.sum, [['Year 3', 11], [ 'Year 4', 18]]],
+};
+each(Object.keys(aggregationWithGroupByTest)).test('Aggregate %s Field WithGroupBy', async (aggregationType) => {
+  const connection = createConnection();
+  const [aggregation, expectedResult] = aggregationWithGroupByTest[aggregationType];
+  const aggregationResult = await connection.student.all
+    .order('class__name')
+    .values('class__name', aggregation('age'), {
+      flat: true,
+    });
+
+  const aggregationResultWithNumbers = aggregationResult.map((i) => [i[0], +i[1]]);
+  expect(aggregationResultWithNumbers).toEqual(expectedResult);
+});
+
+test('Aggregate Related Field', async () => {
+  const connection = createConnection();
+  const aggregationResult = await connection.class.all.values('name', JazzDb.aggregation.min('students__age'), {
+    flat: true,
+  });
+
+  expect(aggregationResult[0]).toEqual(['Year 3', 5]);
+});
+
+test('Aggregate Multiple Fields', async () => {
+  const connection = createConnection();
+  const aggregationResult = await connection.class.all
+    .filter({ name: 'Year 3' })
+    .order('students__name')
+    .values('name', 'students__name', JazzDb.aggregation.min('students__age'), {
+      flat: true,
+    });
+
+  expect(aggregationResult).toEqual([
+    ['Year 3', 'Alison', 6],
+    ['Year 3', 'Troy', 5],
+  ]);
 });

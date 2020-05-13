@@ -4,6 +4,7 @@ import { registerBackend } from './';
 import url from 'url';
 // If you use Client instead of Pool every query times out ???
 import { Pool as postgresClient } from 'pg';
+import { countType, numberType, averageType, sumType } from '../model';
 
 const escapeTableOrField = (name) => `"${name}"`;
 
@@ -19,11 +20,49 @@ const convertField = (field) => {
   }
 };
 
+const generateFields = (filter) => {
+  if (filter.fields.length === 0) {
+    return { fields: `${escapeTableOrField(filter.primaryModel)}.*`, groupBy: '' };
+  }
+
+  const fields = [];
+  const aggregations = [];
+
+  for (const field of filter.fields) {
+    if (field.type === 'field') {
+      fields.push(field);
+    } else {
+      aggregations.push(field);
+    }
+  }
+
+  const selectFields = fields.map((field) => convertField(field));
+  if (aggregations.length === 0) {
+    return { fields: selectFields.join(', '), groupBy: '' };
+  }
+
+  const aggregateFields = generateAggregateField(aggregations, filter.schema);
+
+  return {
+    fields: selectFields.concat(aggregateFields).join(', '),
+    groupBy: selectFields.join(', '),
+  };
+};
+
+const generateAggregateField = (fields, schema) =>
+  fields.map((field) => {
+    const escapedFieldName = escapeTableOrField(field.resultName);
+    const isCountType = field.type === countType;
+
+    if (isCountType && !field.field) {
+      return `count(*) as ${escapedFieldName}`;
+    }
+
+    return `${field.type}(${escapeField(field.field)}) as ${escapedFieldName}`;
+  });
+
 const query = async (filter, connection) => {
-  const fields =
-    filter.fields.length === 0
-      ? `${escapeTableOrField(filter.primaryModel)}.*`
-      : filter.fields.map((field) => convertField(field)).join(', ');
+  const { fields, groupBy } = generateFields(filter);
   const startSql = [
     'select',
     filter.distinct ? 'distinct' : '',
@@ -57,8 +96,10 @@ const query = async (filter, connection) => {
   const orderPrefix = orderSql.length > 0 ? ' ' : '';
   const limitSql = filter.limit >= 0 ? ` limit ${filter.limit}` : '';
 
+  const groupByPrefix = groupBy.length > 0 ? ' group by ' : '';
+
   return runSql(
-    joinSql([startSql, joinModels, wherePrefix, where, orderPrefix, orderSql, limitSql]),
+    joinSql([startSql, joinModels, wherePrefix, where, groupByPrefix, groupBy, orderPrefix, orderSql, limitSql]),
     filter.flat,
     connection
   );

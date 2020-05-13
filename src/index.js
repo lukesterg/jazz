@@ -1,7 +1,7 @@
 import { register as registerPostgres } from './backend/postgres';
 import { createBackend } from './backend';
 import { query } from './filter';
-import { addRelatedFieldsToResult } from './model';
+import { addRelatedFieldsToResult, field, aggregation, aggregationSymbol } from './model';
 
 /**
  * Database state is comprised of:
@@ -76,7 +76,14 @@ class Query {
     return this._newFilter(query.filter(filter, this._query));
   }
 
-  async values(fields, options) {
+  async values(...fields) {
+    const peekLast = fields.length > 0 ? fields[fields.length - 1] : undefined;
+    let options;
+
+    if (typeof peekLast === 'object' && !peekLast[aggregationSymbol]) {
+      options = fields.pop();
+    }
+
     const runQuery = async (query) => {
       const results = await this._backend.query(query);
 
@@ -92,13 +99,6 @@ class Query {
         return result;
       });
     };
-
-    if (typeof fields === 'string') {
-      fields = [fields];
-    } else if (typeof fields === 'object' && !Array.isArray(fields) && !options) {
-      fields = undefined;
-      options = fields;
-    }
 
     if (!options) {
       options = {};
@@ -151,4 +151,6 @@ export const JazzDb = {
   createDatabase,
   addSchema,
   getDatabase,
+  field,
+  aggregation,
 };
