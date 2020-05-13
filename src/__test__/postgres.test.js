@@ -31,13 +31,13 @@ test('AllRecords ReturnsAllRows UsingAsyncIterator', async () => {
 
 test('Field ReturnSingleField', async () => {
   const connection = createConnection();
-  const results = await connection.class.all.order(['name']).values(['name']);
+  const results = await connection.class.all.order('name').values('name');
   expect(results).toEqual([{ name: 'Year 3' }, { name: 'Year 4' }, { name: 'Year 5' }]);
 });
 
 test('Field ReturnMultipleFields', async () => {
   const connection = createConnection();
-  const results = await connection.class.all.order(['name']).values(['name', 'teacher']);
+  const results = await connection.class.all.order('name').values('name', 'teacher');
   expect(results).toEqual([
     { name: 'Year 3', teacher: 'Sam' },
     { name: 'Year 4', teacher: 'Sam' },
@@ -53,7 +53,7 @@ test('Field ReturnSingleField Flat', async () => {
 
 test('Field ReturnMultipleFields Flat', async () => {
   const connection = createConnection();
-  const results = await connection.class.all.order('name').values(['name', 'teacher'], { flat: true });
+  const results = await connection.class.all.order('name').values('name', 'teacher', { flat: true });
   expect(results).toEqual([
     ['Year 3', 'Sam'],
     ['Year 4', 'Sam'],
@@ -94,8 +94,8 @@ each(Object.keys(conditionTests)).test('Filter Where "%s"', async (testName) => 
 
   const results = await connection.class.all
     .filter(filterExpression)
-    .order(['funding'])
-    .values(['funding'], { flat: true });
+    .order('funding')
+    .values('funding', { flat: true });
   expect(results.map((i) => +i)).toEqual(expectedResult);
 });
 
@@ -103,8 +103,8 @@ test('Filter Where IsNull', async () => {
   const connection = createConnection();
   const results = await connection.class.all
     .filter({ helper__isnull: true })
-    .order(['name'])
-    .values(['name'], { flat: true });
+    .order('name')
+    .values('name', { flat: true });
   expect(results).toEqual(['Year 3', 'Year 4']);
 });
 
@@ -112,20 +112,20 @@ test('Filter Where IsNotNull', async () => {
   const connection = createConnection();
   const results = await connection.class.all
     .filter({ helper__isnull: false })
-    .order(['name'])
-    .values(['name'], { flat: true });
+    .order('name')
+    .values('name', { flat: true });
   expect(results).toEqual(['Year 5']);
 });
 
 test('Filter Limit', async () => {
   const connection = createConnection();
-  const results = await connection.class.all.order(['name']).values(['name'], { flat: true, limit: 1 });
+  const results = await connection.class.all.order('name').values('name', { flat: true, limit: 1 });
   expect(results).toEqual(['Year 3']);
 });
 
 test('Single WithRecord', async () => {
   const connection = createConnection();
-  const result = await connection.class.all.filter({ helper__isnull: true }).order(['name']).single();
+  const result = await connection.class.all.filter({ helper__isnull: true }).order('name').single();
   expect(result.name).toEqual('Year 3');
 });
 
@@ -274,7 +274,7 @@ test('Aggregate Count Field WithGroupBy', async () => {
   const connection = createConnection();
   const aggregationResult = await connection.student.all
     .order('class__name')
-    .values(['class__name', JazzDb.aggregation.count()]);
+    .values('class__name', JazzDb.aggregation.count());
 
   expect(aggregationResult).toEqual([
     { name: 'Year 3', all__count: '2' },
@@ -309,7 +309,7 @@ each(Object.keys(aggregationWithGroupByTest)).test('Aggregate %s Field WithGroup
   const [aggregation, expectedResult] = aggregationWithGroupByTest[aggregationType];
   const aggregationResult = await connection.student.all
     .order('class__name')
-    .values(['class__name', aggregation('age')], {
+    .values('class__name', aggregation('age'), {
       flat: true,
     });
 
@@ -319,7 +319,7 @@ each(Object.keys(aggregationWithGroupByTest)).test('Aggregate %s Field WithGroup
 
 test('Aggregate Related Field', async () => {
   const connection = createConnection();
-  const aggregationResult = await connection.class.all.values(['name', JazzDb.aggregation.min('students__age')], {
+  const aggregationResult = await connection.class.all.values('name', JazzDb.aggregation.min('students__age'), {
     flat: true,
   });
 
@@ -331,7 +331,7 @@ test('Aggregate Multiple Fields', async () => {
   const aggregationResult = await connection.class.all
     .filter({ name: 'Year 3' })
     .order('students__name')
-    .values(['name', 'students__name', JazzDb.aggregation.min('students__age')], {
+    .values('name', 'students__name', JazzDb.aggregation.min('students__age'), {
       flat: true,
     });
 
