@@ -31,6 +31,27 @@ const createDatabase = (connectionString, name = defaultDatabase) => {
   databaseState[name] = { backend, schema: {}, materialized: {} };
 };
 
+const databaseType = (database = defaultDatabase) => getDatabaseState(database).backend.name;
+
+const defaultRawSql = {
+  database: defaultDatabase,
+  flat: false,
+};
+const sql = (options) => {
+  options = Object.assign({}, defaultRawSql, options || {});
+
+  return (strings, ...values) => {
+    const sql = [strings[0]];
+    for (const [index, value] of values.entries()) {
+      sql.push(value);
+      sql.push(strings[index + 1]);
+    }
+
+    const database = getDatabaseState(options.database);
+    return database.backend.runSql(sql, options.flat);
+  };
+};
+
 const addSchema = (schema, name = defaultDatabase) => {
   const database = getDatabaseState(name);
 
@@ -153,4 +174,6 @@ export const JazzDb = {
   getDatabase,
   field,
   aggregation,
+  databaseType,
+  sql,
 };

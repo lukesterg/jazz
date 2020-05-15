@@ -4,15 +4,45 @@ import each from 'jest-each';
 
 const postgresConnectionString = 'postgres://test:qwerty@localhost/test';
 
-const createConnection = () => {
+const createDatabase = () => {
   const databaseName = Symbol();
   JazzDb.createDatabase(postgresConnectionString, databaseName);
+  return databaseName;
+};
+
+const createAndSetupDatabase = () => {
+  const databaseName = createDatabase();
   JazzDb.addSchema(defaultModels, databaseName);
   return JazzDb.getDatabase(databaseName);
 };
 
+test('Engine is Postgres', async () => {
+  const databaseName = Symbol();
+  JazzDb.createDatabase(postgresConnectionString, databaseName);
+  expect(JazzDb.databaseType(databaseName)).toBe('postgres');
+});
+
+test('Raw SQL', async () => {
+  const databaseName = Symbol();
+  JazzDb.createDatabase(postgresConnectionString, databaseName);
+  const name = 'Troy';
+  const result = await JazzDb.sql({ database: databaseName })`select name from student where name=${name} limit 1`;
+  expect(result).toEqual([{ name: 'Troy' }]);
+});
+
+test('Raw SQL Flat', async () => {
+  const databaseName = Symbol();
+  JazzDb.createDatabase(postgresConnectionString, databaseName);
+  const name = 'Troy';
+  const result = await JazzDb.sql({
+    database: databaseName,
+    flat: true,
+  })`select name from student where name=${name} limit 1`;
+  expect(result).toEqual(['Troy']);
+});
+
 test('AllRecords ReturnsAllRows UsingValues', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.class.all.values();
   const names = results.map((result) => result.name);
   names.sort();
@@ -20,7 +50,7 @@ test('AllRecords ReturnsAllRows UsingValues', async () => {
 });
 
 test('AllRecords ReturnsAllRows UsingAsyncIterator', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const names = [];
   for await (const record of connection.class.all) {
     names.push(record.name);
@@ -30,13 +60,13 @@ test('AllRecords ReturnsAllRows UsingAsyncIterator', async () => {
 });
 
 test('Field ReturnSingleField', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.class.all.order('name').values('name');
   expect(results).toEqual([{ name: 'Year 3' }, { name: 'Year 4' }, { name: 'Year 5' }]);
 });
 
 test('Field ReturnMultipleFields', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.class.all.order('name').values('name', 'teacher');
   expect(results).toEqual([
     { name: 'Year 3', teacher: 'Sam' },
@@ -46,13 +76,13 @@ test('Field ReturnMultipleFields', async () => {
 });
 
 test('Field ReturnSingleField Flat', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.class.all.order('name').values('name', { flat: true });
   expect(results).toEqual(['Year 3', 'Year 4', 'Year 5']);
 });
 
 test('Field ReturnMultipleFields Flat', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.class.all.order('name').values('name', 'teacher', { flat: true });
   expect(results).toEqual([
     ['Year 3', 'Sam'],
@@ -62,19 +92,19 @@ test('Field ReturnMultipleFields Flat', async () => {
 });
 
 test('Field WithDistinct', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.class.all.order('teacher').values('teacher', { flat: true, distinct: true });
   expect(results).toEqual(['Sally', 'Sam']);
 });
 
 test('OrderBy Ascending', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.class.all.order('name').values('name', { flat: true });
   expect(results).toEqual(['Year 3', 'Year 4', 'Year 5']);
 });
 
 test('OrderBy Descending', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.class.all.order([['name', 'desc']]).values('name', { flat: true });
   expect(results).toEqual(['Year 5', 'Year 4', 'Year 3']);
 });
@@ -89,7 +119,7 @@ const conditionTests = {
   'not equal to': [{ funding__neq: 20 }, allFunds.filter((i) => i !== 20)],
 };
 each(Object.keys(conditionTests)).test('Filter Where "%s"', async (testName) => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const [filterExpression, expectedResult] = conditionTests[testName];
 
   const results = await connection.class.all
@@ -100,7 +130,7 @@ each(Object.keys(conditionTests)).test('Filter Where "%s"', async (testName) => 
 });
 
 test('Filter Where IsNull', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.class.all
     .filter({ helper__isnull: true })
     .order('name')
@@ -109,7 +139,7 @@ test('Filter Where IsNull', async () => {
 });
 
 test('Filter Where IsNotNull', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.class.all
     .filter({ helper__isnull: false })
     .order('name')
@@ -118,25 +148,25 @@ test('Filter Where IsNotNull', async () => {
 });
 
 test('Filter Limit', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.class.all.order('name').values('name', { flat: true, limit: 1 });
   expect(results).toEqual(['Year 3']);
 });
 
 test('Single WithRecord', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const result = await connection.class.all.filter({ helper__isnull: true }).order('name').single();
   expect(result.name).toEqual('Year 3');
 });
 
 test('Single WithoutRecord', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const result = await connection.class.all.filter({ id: -1 }).single();
   expect(result).toBeUndefined();
 });
 
 test('RelatedField HasMany', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const result = await connection.class.all.filter({ name: 'Year 3' }).single();
   const students = await result.students();
   const names = students.map((student) => student.name).sort();
@@ -144,14 +174,14 @@ test('RelatedField HasMany', async () => {
 });
 
 test('RelatedField HasOne', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const result = await connection.student.all.filter({ name: 'Troy' }).single();
   const studentClass = await result.class();
   expect(studentClass.name).toEqual('Year 3');
 });
 
 test('FindBy HasOneField', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const result = await connection.student.all
     .filter({ class__name: 'Year 3' })
     .order('name')
@@ -160,7 +190,7 @@ test('FindBy HasOneField', async () => {
 });
 
 test('FindBy HasManyField', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const result = await connection.class.all
     .filter({ students__name: 'Alison' })
     .order('name')
@@ -169,7 +199,7 @@ test('FindBy HasManyField', async () => {
 });
 
 test('FindBy MultipleLevelsOfRelatedFields', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.class.all
     .filter({ students__address__city: 'Moil' })
     .values('name', { flat: true, distinct: true });
@@ -177,13 +207,13 @@ test('FindBy MultipleLevelsOfRelatedFields', async () => {
 });
 
 test('FindBy NotRelated', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.student.all.filter({ address__isnull: true }).values('name', { flat: true });
   expect(results).toEqual(['John']);
 });
 
 test('FindBy NotRelated AndRelated', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.student.all
     .filter({ address__isnull: true }, { address__city: 'Moil' })
     .values('name', { flat: true });
@@ -191,7 +221,7 @@ test('FindBy NotRelated AndRelated', async () => {
 });
 
 test('FindBy MultipleRelations InSameModel', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.class.all
     .filter({ students__name: 'Troy', students__age: 5 })
     .values('name', { flat: true });
@@ -199,7 +229,7 @@ test('FindBy MultipleRelations InSameModel', async () => {
 });
 
 test('FindBy MultipleRelations InDifferentModels', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const results = await connection.student.all
     .filter({ class__name: 'Year 3', address__city: 'Moil' })
     .values('name', { flat: true });
@@ -207,7 +237,7 @@ test('FindBy MultipleRelations InDifferentModels', async () => {
 });
 
 test('FindBy RelationObject', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const existingClass = await connection.class.all.filter({ name: 'Year 3' }).single();
   const students = await connection.student.all
     .filter({ class: existingClass })
@@ -217,14 +247,14 @@ test('FindBy RelationObject', async () => {
 });
 
 test('Select RelatedField ManyToOne', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const classesWithStudents = await connection.student.all.values('class__name', { flat: true, distinct: true });
   classesWithStudents.sort();
   expect(classesWithStudents).toEqual(['Year 3', 'Year 4']);
 });
 
 test('Select RelatedField OneToMany', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const studentsInClasses = await connection.class.all.values('students__name', { flat: true, distinct: true });
   studentsInClasses.sort();
   // the null occurs because of an optional join. One class does not have any students.
@@ -233,7 +263,7 @@ test('Select RelatedField OneToMany', async () => {
 
 // In this instance there is a where condition creating an inner join. The values respects the inner join.
 test('Select RelatedField InnerJoinedByFilter', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const studentsInClasses = await connection.class.all
     .filter({ students__age__lte: 10 })
     .values('students__name', { flat: true, distinct: true });
@@ -242,7 +272,7 @@ test('Select RelatedField InnerJoinedByFilter', async () => {
 });
 
 test('OrderBy RelatedField', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const classesWithStudents = await connection.class.all
     .order('students__name')
     .values('students__name', { flat: true, distinct: true });
@@ -250,7 +280,7 @@ test('OrderBy RelatedField', async () => {
 });
 
 test('OrderBy RelatedField InnerJoinedByFilter', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const classesWithStudents = await connection.class.all
     .filter({ students__age__lte: 10 })
     .order('students__name')
@@ -259,19 +289,19 @@ test('OrderBy RelatedField InnerJoinedByFilter', async () => {
 });
 
 test('Aggregate Count AllRecords', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const studentCount = await connection.student.all.values(JazzDb.aggregation.count());
   expect(studentCount).toEqual([{ all__count: '4' }]);
 });
 
 test('Aggregate Count Field', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const studentCount = await connection.class.all.values(JazzDb.aggregation.count('helper'));
   expect(studentCount).toEqual([{ helper__count: '1' }]);
 });
 
 test('Aggregate Count Field WithGroupBy', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const aggregationResult = await connection.student.all
     .order('class__name')
     .values('class__name', JazzDb.aggregation.count());
@@ -289,7 +319,7 @@ const aggregationTest = {
   sum: [JazzDb.aggregation.sum, 29],
 };
 each(Object.keys(aggregationTest)).test('Aggregate %s Field', async (aggregationType) => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const [aggregation, expectedResult] = aggregationTest[aggregationType];
   const aggregationResult = await connection.student.all.values(aggregation('age'), { flat: true });
 
@@ -305,7 +335,7 @@ const aggregationWithGroupByTest = {
   sum: [JazzDb.aggregation.sum, [['Year 3', 11], [ 'Year 4', 18]]],
 };
 each(Object.keys(aggregationWithGroupByTest)).test('Aggregate %s Field WithGroupBy', async (aggregationType) => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const [aggregation, expectedResult] = aggregationWithGroupByTest[aggregationType];
   const aggregationResult = await connection.student.all
     .order('class__name')
@@ -318,7 +348,7 @@ each(Object.keys(aggregationWithGroupByTest)).test('Aggregate %s Field WithGroup
 });
 
 test('Aggregate Related Field', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const aggregationResult = await connection.class.all.values('name', JazzDb.aggregation.min('students__age'), {
     flat: true,
   });
@@ -327,7 +357,7 @@ test('Aggregate Related Field', async () => {
 });
 
 test('Aggregate Multiple Fields', async () => {
-  const connection = createConnection();
+  const connection = createAndSetupDatabase();
   const aggregationResult = await connection.class.all
     .filter({ name: 'Year 3' })
     .order('students__name')

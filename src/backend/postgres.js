@@ -171,6 +171,7 @@ export const register = () => {
 
     const postgresConnection = new postgresClient(connection);
     return {
+      name: 'postgres',
       query: (filter) => query(filter, postgresConnection),
       runSql: (sql, flat) => runSql(sql, flat, postgresConnection),
       end: () => postgresConnection.end(),
