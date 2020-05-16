@@ -82,14 +82,14 @@ const query = async (filter, connection) => {
     models
       .map(
         ([newModel, existingModelKey, newModelKey]) =>
-          ` ${joinType} JOIN ${options.escapeTable(newModel)} ON ${options.escapeField(
+          ` ${joinType} join ${options.escapeTable(newModel)} on ${options.escapeField(
             existingModelKey
           )} = ${options.escapeField(newModelKey)}`
       )
       .join('');
 
-  const mustJoin = joinTable(filter.models, 'INNER');
-  const optionalJoin = joinTable(filter.optionalModels, 'LEFT');
+  const mustJoin = joinTable(filter.models, 'inner');
+  const optionalJoin = joinTable(filter.optionalModels, 'left');
   const joinModels = mustJoin + optionalJoin;
 
   const orderSql = generateOrder(filter.order);
@@ -131,6 +131,56 @@ const runSql = async (sql, flat, connection) => {
   return results.rows;
 };
 
+export const transaction = async (connection, endConnection) => {
+  const sql = (sql) => runSql(sql, false, connection);
+
+  let level = 1;
+  await sql('begin');
+
+  const savePointName = () => `save_${level}`;
+
+  const throwIfTransactionComplete = () => {
+    if (level === 0) {
+      throw new Error('transaction is finalised');
+    }
+  };
+
+  const checkpoint = async () => {
+    throwIfTransactionComplete();
+    await sql('savepoint ' + savePointName());
+    ++level;
+  };
+
+  const rollback = async (force) => {
+    throwIfTransactionComplete();
+    if (force || --level === 0) {
+      level = 0;
+      await sql('rollback');
+      endConnection();
+    } else {
+      await sql('rollback to ' + savePointName());
+    }
+  };
+
+  const commit = async (force) => {
+    throwIfTransactionComplete();
+
+    if (force || --level === 0) {
+      level = 0;
+      await sql('commit');
+      endConnection();
+    }
+  };
+
+  return Object.assign(
+    createEngineBundleFromConnection(() => {
+      throwIfTransactionComplete();
+      return Promise.resolve(connection);
+    }),
+    { checkpoint, rollback, commit, complete: () => level === 0 }
+  );
+};
+
 let isRegistered = false;
 export const register = () => {
   if (isRegistered) {
@@ -170,11 +220,29 @@ export const register = () => {
     }
 
     const postgresConnection = new postgresClient(connection);
-    return {
-      name: 'postgres',
-      query: (filter) => query(filter, postgresConnection),
-      runSql: (sql, flat) => runSql(sql, flat, postgresConnection),
-      end: () => postgresConnection.end(),
-    };
+    return createEngineBundleFromConnection(
+      () => postgresConnection.connect(),
+      (connection) => connection.release()
+    );
   });
 };
+
+const createEngineBundleFromConnection = (createConnection, endConnection) => ({
+  name: 'postgres',
+  query: async (filter) => {
+    const connection = await createConnection();
+    const result = await query(filter, connection);
+    endConnection?.(connection);
+    return result;
+  },
+  runSql: async (sql, flat) => {
+    const connection = await createConnection();
+    const result = await runSql(sql, flat, connection);
+    endConnection?.(connection);
+    return result;
+  },
+  transaction: async () => {
+    const connection = await createConnection();
+    return await transaction(connection, () => endConnection(connection));
+  },
+});

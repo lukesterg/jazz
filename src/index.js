@@ -13,6 +13,9 @@ import { addRelatedFieldsToResult, field, aggregation, aggregationSymbol } from 
 const defaultDatabase = Symbol('default');
 let databaseState = {};
 
+const reservedModelNames = ['sql', 'databaseType', 'transaction'];
+const isReservedModelName = (name) => reservedModelNames.indexOf(name) >= 0;
+
 const getDatabaseState = (name) => {
   const database = databaseState[name];
   if (!database) {
@@ -22,55 +25,106 @@ const getDatabaseState = (name) => {
   return database;
 };
 
+const defaultMaterializedItems = (backend) => ({
+  sql: sql(backend),
+  databaseType: backend.name,
+});
+
 const createDatabase = (connectionString, name = defaultDatabase) => {
   if (databaseState[name]) {
     throw new Error(`database ${name} is already registered`);
   }
 
   const backend = createBackend(connectionString);
-  databaseState[name] = { backend, schema: {}, materialized: {} };
+  databaseState[name] = {
+    backend,
+    schema: {},
+    materialized: Object.assign(defaultMaterializedItems(backend), {
+      transaction: (callback) => createTransaction(name, backend, callback),
+    }),
+  };
 };
 
-const databaseType = (database = defaultDatabase) => getDatabaseState(database).backend.name;
-
-const defaultRawSql = {
-  database: defaultDatabase,
+const defaultSqlOptions = {
   flat: false,
 };
-const sql = (options) => {
-  options = Object.assign({}, defaultRawSql, options || {});
 
-  return (strings, ...values) => {
+const sql = (backend) => {
+  const stringInterpolation = (options, strings, values) => {
+    // if strings are not an array they are the new options
+    if (typeof strings === 'object' && !Array.isArray(strings)) {
+      return (newStrings, ...newValues) => stringInterpolation(strings, newStrings, newValues);
+    }
+
     const sql = [strings[0]];
     for (const [index, value] of values.entries()) {
       sql.push(value);
       sql.push(strings[index + 1]);
     }
 
-    const database = getDatabaseState(options.database);
-    return database.backend.runSql(sql, options.flat);
+    return backend.runSql(sql, options.flat);
   };
+
+  return (strings, ...values) => stringInterpolation(defaultSqlOptions, strings, values);
 };
 
 const addSchema = (schema, name = defaultDatabase) => {
-  const database = getDatabaseState(name);
+  const databaseState = getDatabaseState(name);
 
-  const intersectingKeys = Object.keys(schema).filter((key) => database.schema[key]);
+  const intersectingKeys = Object.keys(schema).filter((key) => databaseState.schema[key]);
   if (intersectingKeys.length > 0) {
     throw new Error(`failed to add schema, the intersecting keys are ${intersectingKeys.join(', ')}`);
   }
 
-  database.schema = Object.assign(database.schema, schema);
-  const materializedModels = Object.fromEntries(
-    Object.keys(schema).map((key) => [key, createMaterializedView(key, database)])
-  );
+  databaseState.schema = Object.assign(databaseState.schema, schema);
+  const materializedModels = generateMaterializedView(databaseState, schema);
+  databaseState.materialized = Object.assign(databaseState.materialized, materializedModels);
+};
 
-  database.materialized = Object.assign(database.materialized, materializedModels);
+const createTransaction = async (databaseName, backend, callback) => {
+  // if callback is specified we are handling the transactional safety
+  if (callback) {
+    const transaction = await createTransaction(databaseName, backend);
+    try {
+      await callback(transaction);
+      transaction.commit();
+    } catch (e) {
+      transaction.rollback();
+      throw e;
+    }
+
+    return;
+  }
+
+  const newBackend = await backend.transaction();
+  const newDatabaseState = Object.assign({}, getDatabaseState(databaseName), { backend: newBackend });
+  return Object.assign(defaultMaterializedItems(newBackend), generateMaterializedView(newDatabaseState), {
+    checkpoint: () => newBackend.checkpoint(),
+    commit: () => newBackend.commit(),
+    rollback: () => newBackend.rollback(),
+    complete: () => newBackend.complete(),
+  });
+};
+
+const generateMaterializedView = (databaseState, schema) => {
+  if (!schema) {
+    schema = databaseState.schema;
+  }
+
+  return Object.fromEntries(
+    Object.keys(schema).map((key) => {
+      if (isReservedModelName(key)) {
+        throw new Error(`unable to use ${key} as a model name as it is reserved`);
+      }
+
+      return [key, createMaterializedViewForModel(key, databaseState)];
+    })
+  );
 };
 
 const getDatabase = (name = defaultDatabase) => getDatabaseState(name).materialized;
 
-const createMaterializedView = (modelName, databaseState) => ({
+const createMaterializedViewForModel = (modelName, databaseState) => ({
   all: new Query(modelName, databaseState),
 });
 
@@ -174,6 +228,4 @@ export const JazzDb = {
   getDatabase,
   field,
   aggregation,
-  databaseType,
-  sql,
 };
