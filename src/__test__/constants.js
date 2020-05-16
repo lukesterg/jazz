@@ -21,4 +21,13 @@ export const defaultModels = {
     city: {},
     student: field.hasMany('student', { relatedField: 'address' }),
   },
+  // playground for inserting data which can be deleted which wont interfere with read tests
+  savetest1: {
+    id: field.number({ primaryKey: true }),
+  },
+  savetest2: {
+    id: field.number({ primaryKey: true }),
+    a: {},
+    b: {},
+  },
 };

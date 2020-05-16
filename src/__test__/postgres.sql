@@ -1,3 +1,5 @@
+drop table savetest1;
+drop table savetest2;
 drop table address;
 drop table student;
 drop table class;
@@ -23,6 +25,19 @@ create table student(
   age int,
   class int references class(id) on delete cascade,
   address int references address(id) on delete cascade,
+  primary key(id)
+);
+
+create table savetest1 (
+  id serial,
+  a int,
+  primary key(id)
+);
+
+create table savetest2 (
+  id int,
+  a int,
+  b int,
   primary key(id)
 );
 
