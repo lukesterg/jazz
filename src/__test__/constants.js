@@ -25,4 +25,9 @@ export const defaultModels = {
   savetest1: {
     id: field.number({ primaryKey: true }),
   },
+  savetest2: {
+    id: field.number({ primaryKey: true }),
+    a: {},
+    b: {},
+  },
 };

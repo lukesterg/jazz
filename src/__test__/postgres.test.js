@@ -360,6 +360,45 @@ test('Aggregate Multiple Fields', async () => {
   ]);
 });
 
+test('Save ByInsert UpdatesPrimaryKey', async () => {
+  const connection = getDatabase();
+  const item = { a: 1 };
+  const id = await connection.savetest1.save(item);
+  expect(item.id).toBeGreaterThan(0);
+  expect(id).toEqual(item.id);
+});
+
+test('Save ByInsert InsertsCorrectly', async () => {
+  const connection = getDatabase();
+  const expectedNumber = Math.floor(Math.random() * 1e6);
+  const item = { a: expectedNumber };
+  await connection.savetest1.save(item);
+  const fetched = await connection.savetest1.all.filter({ id: item.id }).single();
+  expect(fetched).toEqual(item);
+});
+
+each(['NoAutoPrimaryKey', 'MultipleKeys']).test('Save ByInsert %s InsertsCorrectly', async () => {
+  const connection = getDatabase();
+  const id = Math.floor(Math.random() * 1e6);
+  const item = { id, a: 2, b: 3 };
+  await connection.savetest2.save(item);
+  const fetched = await connection.savetest2.all.filter({ id }).single();
+  expect(fetched).toEqual(item);
+});
+
+test('Save ByUpdate UpdatesCorrectly', async () => {
+  const connection = getDatabase();
+  const expectedNumber = Math.floor(Math.random() * 1e6);
+  const item = { a: 1 };
+  await connection.savetest1.save(item);
+  const insertId = item.id;
+  item.a = expectedNumber;
+  await connection.savetest1.save(item);
+  const fetched = await connection.savetest1.all.filter({ id: item.id }).single();
+  expect(fetched).toEqual(item);
+  expect(insertId).toBe(item.id);
+});
+
 test('Transaction CantFetchDataInsideTransaction', async () => {
   const connection = getDatabase();
   const transaction = await connection.transaction();

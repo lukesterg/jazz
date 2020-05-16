@@ -181,6 +181,37 @@ export const transaction = async (connection, endConnection) => {
   );
 };
 
+export const save = async (model, record, primaryKeyName, connection) => {
+  const insertKeys = [];
+  const insertValues = [];
+  const updateKeyValues = [];
+
+  for (const [fieldName, fieldValue] of Object.entries(record)) {
+    const escapedFieldName = escapeTableOrField(fieldName);
+    insertKeys.push(escapedFieldName);
+
+    insertValues.push(insertValues.length > 0 ? ', ' : '');
+    insertValues.push(fieldValue);
+
+    const updatePrefix = updateKeyValues.length === 0 ? '' : ', ';
+    updateKeyValues.push(`${updatePrefix}${escapedFieldName}=`);
+    updateKeyValues.push(fieldValue);
+  }
+
+  const escapedModel = escapeTableOrField(model);
+  let insert = joinSql([`insert into ${escapedModel} (${insertKeys.join(', ')}) values (`, insertValues, ')']);
+
+  const escapedPrimaryKeyName = escapeTableOrField(primaryKeyName);
+  const sql = joinSql([
+    insert,
+    ` on conflict(${escapedPrimaryKeyName}) do update set `,
+    updateKeyValues,
+    ` returning ${escapedPrimaryKeyName}`,
+  ]);
+  const result = await runSql(sql, true, connection);
+  return result[0];
+};
+
 let isRegistered = false;
 export const register = () => {
   if (isRegistered) {
@@ -244,5 +275,11 @@ const createEngineBundleFromConnection = (createConnection, endConnection) => ({
   transaction: async () => {
     const connection = await createConnection();
     return await transaction(connection, () => endConnection(connection));
+  },
+  save: async (model, record, primaryKeyName) => {
+    const connection = await createConnection();
+    const result = await save(model, record, primaryKeyName, connection);
+    endConnection?.(connection);
+    return result;
   },
 });

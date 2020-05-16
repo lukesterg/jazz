@@ -1,7 +1,7 @@
 import { register as registerPostgres } from './backend/postgres';
 import { createBackend } from './backend';
 import { query } from './filter';
-import { addRelatedFieldsToResult, field, aggregation, aggregationSymbol } from './model';
+import { addRelatedFieldsToResult, field, aggregation, aggregationSymbol, getPrimaryKeyFromModel } from './model';
 
 /**
  * Database state is comprised of:
@@ -126,6 +126,7 @@ const getDatabase = (name = defaultDatabase) => getDatabaseState(name).materiali
 
 const createMaterializedViewForModel = (modelName, databaseState) => ({
   all: new Query(modelName, databaseState),
+  save: save(modelName, databaseState),
 });
 
 class Query {
@@ -213,6 +214,15 @@ class Query {
     }
   }
 }
+
+const save = (modelName, { schema, backend }) => {
+  return async (record) => {
+    const primaryKey = getPrimaryKeyFromModel(schema[modelName]);
+    const id = await backend.save(modelName, record, primaryKey);
+    record[primaryKey] = id;
+    return id;
+  };
+};
 
 (() => {
   registerPostgres();
