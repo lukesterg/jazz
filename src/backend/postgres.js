@@ -110,6 +110,23 @@ const deleteRecords = (filter, connection) => {
   return runSql(joinSql([`delete from ${escapedModelName}`, where]), displayCount, connection);
 };
 
+const updateRecords = (filter, updates, connection) => {
+  const escapedModelName = escapeTableOrField(filter.primaryModel);
+  const where = generateWhereWithPrefix(filter.where, { escapeField });
+  const updateEntries = Object.entries(updates);
+  if (updateEntries.length === 0) {
+    return 0;
+  }
+
+  const updateFields = updateEntries.reduce((current, [field, value]) => {
+    const prefix = current.length === 0 ? '' : ', ';
+    const escapedField = escapeTableOrField(field);
+    return current.concat(`${prefix}${field}=`, value);
+  }, []);
+
+  return runSql(joinSql([`update ${escapedModelName} set `, updateFields, where]), displayCount, connection);
+};
+
 const generateOrder = (order) => {
   if (order.length === 0) {
     return '';
@@ -299,6 +316,12 @@ const createEngineBundleFromConnection = (createConnection, endConnection) => ({
   delete: async (filter) => {
     const connection = await createConnection();
     const result = await deleteRecords(filter, connection);
+    endConnection?.(connection);
+    return result;
+  },
+  update: async (filter, updates) => {
+    const connection = await createConnection();
+    const result = await updateRecords(filter, updates, connection);
     endConnection?.(connection);
     return result;
   },

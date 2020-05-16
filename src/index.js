@@ -164,6 +164,16 @@ class Query {
     return await this._backend.delete(finalQuery);
   }
 
+  async update(record, options) {
+    let finalQuery = this._query;
+
+    if (options?.limit > 0) {
+      finalQuery = query.limit(options.limit, finalQuery);
+    }
+
+    return await this._backend.update(finalQuery, record);
+  }
+
   async values(...fields) {
     const peekLast = fields.length > 0 ? fields[fields.length - 1] : undefined;
     let options;
@@ -204,6 +214,11 @@ class Query {
 
     finalQuery = query.values(fields, options, finalQuery);
     return await runQuery(finalQuery);
+  }
+
+  async count() {
+    const [result] = await this.values(JazzDb.aggregation.count(), { flat: true });
+    return +result;
   }
 
   async single() {

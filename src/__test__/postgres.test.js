@@ -606,7 +606,7 @@ test('Transaction SafeWrapper CanReject', async () => {
   await database.end();
 });
 
-test('Delete CanDeleteAll', async () => {
+test('Delete All', async () => {
   const database = getDatabase();
   const transaction = await database.transaction();
   await transaction.savetest1.all.delete();
@@ -617,7 +617,7 @@ test('Delete CanDeleteAll', async () => {
   await database.end();
 });
 
-test('Delete CanDelete ByQuery', async () => {
+test('Delete ByQuery', async () => {
   const database = getDatabase();
   const canDeleteNumber = Math.floor(Math.random() * 1e6);
   await database.savetest1.all.filter({ a: canDeleteNumber }).delete();
@@ -629,5 +629,32 @@ test('Delete CanDelete ByQuery', async () => {
   transaction.rollback();
   expect(itemsDeletedFirstAttempt).toBe(1);
   expect(itemsDeletedSecondAttempt).toBe(0);
+  await database.end();
+});
+
+test('Update All', async () => {
+  const database = getDatabase();
+  const transaction = await database.transaction();
+  await transaction.savetest1.all.delete();
+  await transaction.savetest1.save({ a: 1 });
+  await transaction.savetest1.save({ a: 2 });
+  await transaction.savetest1.all.update({ a: 3 });
+  const count = await transaction.savetest1.all.filter({ a: 3 }).count();
+  transaction.rollback();
+  expect(count).toBe(2);
+  await database.end();
+});
+
+test('Update ByQuery', async () => {
+  const database = getDatabase();
+  const transaction = await database.transaction();
+  await transaction.savetest1.all.delete();
+  await transaction.savetest1.save({ a: 1 });
+  await transaction.savetest1.save({ a: 1 });
+  await transaction.savetest1.save({ a: 3 });
+  await transaction.savetest1.all.filter({ a: 1 }).update({ a: 2 });
+  const count = await transaction.savetest1.all.filter({ a: 2 }).count();
+  transaction.rollback();
+  expect(count).toBe(2);
   await database.end();
 });
