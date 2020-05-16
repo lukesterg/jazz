@@ -402,7 +402,7 @@ test('Save ByUpdate UpdatesCorrectly', async () => {
 test('Transaction CantFetchDataInsideTransaction', async () => {
   const connection = getDatabase();
   const transaction = await connection.transaction();
-  const [id] = await transaction.sql({ flat: true })`insert into savetest1 (a) values (${1}) returning id`;
+  const id = await transaction.savetest1.save({ a: 1 });
   const insideTransaction = await transaction.savetest1.all.filter({ id }).single();
   const outsideTransaction = await connection.savetest1.all.filter({ id }).single();
   expect(insideTransaction).toBeDefined();
@@ -412,7 +412,7 @@ test('Transaction CantFetchDataInsideTransaction', async () => {
 test('Transaction CanCommit', async () => {
   const connection = getDatabase();
   const transaction = await connection.transaction();
-  const [id] = await transaction.sql({ flat: true })`insert into savetest1 (a) values (${1}) returning id`;
+  const id = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
   const result = await connection.savetest1.all.filter({ id }).single();
   expect(result).toBeDefined();
@@ -421,7 +421,7 @@ test('Transaction CanCommit', async () => {
 test('Transaction CanRollback', async () => {
   const connection = getDatabase();
   const transaction = await connection.transaction();
-  const [id] = await transaction.sql({ flat: true })`insert into savetest1 (a) values (${1}) returning id`;
+  const id = await transaction.savetest1.save({ a: 1 });
   await transaction.rollback();
   const result = await connection.savetest1.all.filter({ id }).single();
   expect(result).toBeUndefined();
@@ -430,9 +430,10 @@ test('Transaction CanRollback', async () => {
 test('Transaction Checkpoint RollbackInNestedTransaction', async () => {
   const connection = getDatabase();
   const transaction = await connection.transaction();
-  const [id] = await transaction.sql({ flat: true })`insert into savetest1 (a) values (${1}) returning id`;
+  const id = await transaction.savetest1.save({ a: 1 });
   await transaction.checkpoint();
-  const [nestedId] = await transaction.sql({ flat: true })`insert into savetest1 (a) values (${1}) returning id`;
+
+  const nestedId = await transaction.savetest1.save({ a: 1 });
   await transaction.rollback();
   const firstTransactionBeforeCommit = await connection.savetest1.all.filter({ id }).single();
   await transaction.commit();
@@ -447,9 +448,9 @@ test('Transaction Checkpoint RollbackInNestedTransaction', async () => {
 test('Transaction Checkpoint CommitInNestedTransaction', async () => {
   const connection = getDatabase();
   const transaction = await connection.transaction();
-  const [id] = await transaction.sql({ flat: true })`insert into savetest1 (a) values (${1}) returning id`;
+  const id = await transaction.savetest1.save({ a: 1 });
   await transaction.checkpoint();
-  const [nestedId] = await transaction.sql({ flat: true })`insert into savetest1 (a) values (${1}) returning id`;
+  const nestedId = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
   const firstTransactionBeforeCommit = await connection.savetest1.all.filter({ id }).single();
   await transaction.commit();
@@ -466,7 +467,7 @@ test('Transaction Checkpoint MultipleCheckpoints Commit', async () => {
   const transaction = await connection.transaction();
   await transaction.checkpoint();
   await transaction.checkpoint();
-  const [id] = await transaction.sql({ flat: true })`insert into savetest1 (a) values (${1}) returning id`;
+  const id = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
   await transaction.commit();
   await transaction.commit();
@@ -479,7 +480,7 @@ test('Transaction Checkpoint SeriesOfCommitsAndRollbacks', async () => {
   const transaction = await connection.transaction();
   await transaction.checkpoint();
   await transaction.checkpoint();
-  const [id] = await transaction.sql({ flat: true })`insert into savetest1 (a) values (${1}) returning id`;
+  const id = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
   await transaction.rollback();
   await transaction.commit();
@@ -523,7 +524,7 @@ test('Transaction SafeWrapper CanCommit', async () => {
   const connection = getDatabase();
   let id;
   await connection.transaction(async (transaction) => {
-    [id] = await transaction.sql({ flat: true })`insert into savetest1 (a) values (${1}) returning id`;
+    id = await transaction.savetest1.save({ a: 1 });
   });
   const record = await connection.savetest1.all.filter({ id }).single();
   expect(record).toBeDefined();
@@ -537,7 +538,7 @@ test('Transaction SafeWrapper CanReject', async () => {
 
   try {
     await connection.transaction(async (transaction) => {
-      [id] = await transaction.sql({ flat: true })`insert into savetest1 (a) values (${1}) returning id`;
+      id = await transaction.savetest1.save({ a: 1 });
       throw toThrow;
     });
   } catch (e) {
