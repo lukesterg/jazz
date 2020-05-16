@@ -1,5 +1,5 @@
 import { register as registerPostgres } from './backend/postgres';
-import { createBackend } from './backend';
+import { createBackend, displayFlat, displayObject, displayCount } from './backend';
 import { query } from './filter';
 import { addRelatedFieldsToResult, field, aggregation, aggregationSymbol, getPrimaryKeyFromModel } from './model';
 
@@ -41,12 +41,14 @@ const createDatabase = (connectionString, name = defaultDatabase) => {
     schema: {},
     materialized: Object.assign(defaultMaterializedItems(backend), {
       transaction: (callback) => createTransaction(name, backend, callback),
+      end: () => backend.end(),
     }),
   };
 };
 
 const defaultSqlOptions = {
   flat: false,
+  query: true,
 };
 
 const sql = (backend) => {
@@ -62,7 +64,7 @@ const sql = (backend) => {
       sql.push(strings[index + 1]);
     }
 
-    return backend.runSql(sql, options.flat);
+    return backend.runSql(sql, query ? (options.flat ? displayFlat : displayObject) : displayCount);
   };
 
   return (strings, ...values) => stringInterpolation(defaultSqlOptions, strings, values);
@@ -150,6 +152,16 @@ class Query {
 
   filter(...filter) {
     return this._newFilter(query.filter(filter, this._query));
+  }
+
+  async delete(options) {
+    let finalQuery = this._query;
+
+    if (options?.limit > 0) {
+      finalQuery = query.limit(options.limit, finalQuery);
+    }
+
+    return await this._backend.delete(finalQuery);
   }
 
   async values(...fields) {

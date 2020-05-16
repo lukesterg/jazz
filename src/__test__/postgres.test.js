@@ -11,9 +11,17 @@ const getDatabase = () => {
   return JazzDb.getDatabase(databaseName);
 };
 
+afterAll(async () => {
+  const database = getDatabase();
+  await database.savetest1.all.delete();
+  await database.savetest2.all.delete();
+  await database.end();
+});
+
 test('Engine is Postgres', async () => {
   const database = getDatabase();
   expect(database.databaseType).toBe('postgres');
+  await database.end();
 });
 
 test('Raw SQL', async () => {
@@ -21,6 +29,7 @@ test('Raw SQL', async () => {
   const name = 'Troy';
   const result = await database.sql`select name from student where name=${name} limit 1`;
   expect(result).toEqual([{ name: 'Troy' }]);
+  await database.end();
 });
 
 test('Raw SQL Flat', async () => {
@@ -28,74 +37,84 @@ test('Raw SQL Flat', async () => {
   const name = 'Troy';
   const result = await database.sql({ flat: true })`select name from student where name=${name} limit 1`;
   expect(result).toEqual(['Troy']);
+  await database.end();
 });
 
 test('AllRecords ReturnsAllRows UsingValues', async () => {
-  const connection = getDatabase();
-  const results = await connection.class.all.values();
+  const database = getDatabase();
+  const results = await database.class.all.values();
   const names = results.map((result) => result.name);
   names.sort();
   expect(names).toEqual(['Year 3', 'Year 4', 'Year 5']);
+  await database.end();
 });
 
 test('AllRecords ReturnsAllRows UsingAsyncIterator', async () => {
-  const connection = getDatabase();
+  const database = getDatabase();
   const names = [];
-  for await (const record of connection.class.all) {
+  for await (const record of database.class.all) {
     names.push(record.name);
   }
   names.sort();
   expect(names).toEqual(['Year 3', 'Year 4', 'Year 5']);
+  await database.end();
 });
 
 test('Field ReturnSingleField', async () => {
-  const connection = getDatabase();
-  const results = await connection.class.all.order('name').values('name');
+  const database = getDatabase();
+  const results = await database.class.all.order('name').values('name');
   expect(results).toEqual([{ name: 'Year 3' }, { name: 'Year 4' }, { name: 'Year 5' }]);
+  await database.end();
 });
 
 test('Field ReturnMultipleFields', async () => {
-  const connection = getDatabase();
-  const results = await connection.class.all.order('name').values('name', 'teacher');
+  const database = getDatabase();
+  const results = await database.class.all.order('name').values('name', 'teacher');
   expect(results).toEqual([
     { name: 'Year 3', teacher: 'Sam' },
     { name: 'Year 4', teacher: 'Sam' },
     { name: 'Year 5', teacher: 'Sally' },
   ]);
+  await database.end();
 });
 
 test('Field ReturnSingleField Flat', async () => {
-  const connection = getDatabase();
-  const results = await connection.class.all.order('name').values('name', { flat: true });
+  const database = getDatabase();
+  const results = await database.class.all.order('name').values('name', { flat: true });
   expect(results).toEqual(['Year 3', 'Year 4', 'Year 5']);
+  await database.end();
 });
 
 test('Field ReturnMultipleFields Flat', async () => {
-  const connection = getDatabase();
-  const results = await connection.class.all.order('name').values('name', 'teacher', { flat: true });
+  const database = getDatabase();
+  const results = await database.class.all.order('name').values('name', 'teacher', { flat: true });
   expect(results).toEqual([
     ['Year 3', 'Sam'],
     ['Year 4', 'Sam'],
     ['Year 5', 'Sally'],
   ]);
+  await database.end();
 });
 
 test('Field WithDistinct', async () => {
-  const connection = getDatabase();
-  const results = await connection.class.all.order('teacher').values('teacher', { flat: true, distinct: true });
+  const database = getDatabase();
+  const results = await database.class.all.order('teacher').values('teacher', { flat: true, distinct: true });
   expect(results).toEqual(['Sally', 'Sam']);
+  await database.end();
 });
 
 test('OrderBy Ascending', async () => {
-  const connection = getDatabase();
-  const results = await connection.class.all.order('name').values('name', { flat: true });
+  const database = getDatabase();
+  const results = await database.class.all.order('name').values('name', { flat: true });
   expect(results).toEqual(['Year 3', 'Year 4', 'Year 5']);
+  await database.end();
 });
 
 test('OrderBy Descending', async () => {
-  const connection = getDatabase();
-  const results = await connection.class.all.order([['name', 'desc']]).values('name', { flat: true });
+  const database = getDatabase();
+  const results = await database.class.all.order([['name', 'desc']]).values('name', { flat: true });
   expect(results).toEqual(['Year 5', 'Year 4', 'Year 3']);
+  await database.end();
 });
 
 const allFunds = [10, 20, 30];
@@ -108,190 +127,210 @@ const conditionTests = {
   'not equal to': [{ funding__neq: 20 }, allFunds.filter((i) => i !== 20)],
 };
 each(Object.keys(conditionTests)).test('Filter Where "%s"', async (testName) => {
-  const connection = getDatabase();
+  const database = getDatabase();
   const [filterExpression, expectedResult] = conditionTests[testName];
 
-  const results = await connection.class.all
-    .filter(filterExpression)
-    .order('funding')
-    .values('funding', { flat: true });
+  const results = await database.class.all.filter(filterExpression).order('funding').values('funding', { flat: true });
   expect(results.map((i) => +i)).toEqual(expectedResult);
+  await database.end();
 });
 
 test('Filter Where IsNull', async () => {
-  const connection = getDatabase();
-  const results = await connection.class.all
+  const database = getDatabase();
+  const results = await database.class.all
     .filter({ helper__isnull: true })
     .order('name')
     .values('name', { flat: true });
   expect(results).toEqual(['Year 3', 'Year 4']);
+  await database.end();
 });
 
 test('Filter Where IsNotNull', async () => {
-  const connection = getDatabase();
-  const results = await connection.class.all
+  const database = getDatabase();
+  const results = await database.class.all
     .filter({ helper__isnull: false })
     .order('name')
     .values('name', { flat: true });
   expect(results).toEqual(['Year 5']);
+  await database.end();
 });
 
 test('Filter Limit', async () => {
-  const connection = getDatabase();
-  const results = await connection.class.all.order('name').values('name', { flat: true, limit: 1 });
+  const database = getDatabase();
+  const results = await database.class.all.order('name').values('name', { flat: true, limit: 1 });
   expect(results).toEqual(['Year 3']);
+  await database.end();
 });
 
 test('Single WithRecord', async () => {
-  const connection = getDatabase();
-  const result = await connection.class.all.filter({ helper__isnull: true }).order('name').single();
+  const database = getDatabase();
+  const result = await database.class.all.filter({ helper__isnull: true }).order('name').single();
   expect(result.name).toEqual('Year 3');
+  await database.end();
 });
 
 test('Single WithoutRecord', async () => {
-  const connection = getDatabase();
-  const result = await connection.class.all.filter({ id: -1 }).single();
+  const database = getDatabase();
+  const result = await database.class.all.filter({ id: -1 }).single();
   expect(result).toBeUndefined();
+  await database.end();
 });
 
 test('RelatedField HasMany', async () => {
-  const connection = getDatabase();
-  const result = await connection.class.all.filter({ name: 'Year 3' }).single();
+  const database = getDatabase();
+  const result = await database.class.all.filter({ name: 'Year 3' }).single();
   const students = await result.students();
   const names = students.map((student) => student.name).sort();
   expect(names).toEqual(['Alison', 'Troy']);
+  await database.end();
 });
 
 test('RelatedField HasOne', async () => {
-  const connection = getDatabase();
-  const result = await connection.student.all.filter({ name: 'Troy' }).single();
+  const database = getDatabase();
+  const result = await database.student.all.filter({ name: 'Troy' }).single();
   const studentClass = await result.class();
   expect(studentClass.name).toEqual('Year 3');
+  await database.end();
 });
 
 test('FindBy HasOneField', async () => {
-  const connection = getDatabase();
-  const result = await connection.student.all
+  const database = getDatabase();
+  const result = await database.student.all
     .filter({ class__name: 'Year 3' })
     .order('name')
     .values('name', { flat: true });
   expect(result).toEqual(['Alison', 'Troy']);
+  await database.end();
 });
 
 test('FindBy HasManyField', async () => {
-  const connection = getDatabase();
-  const result = await connection.class.all
+  const database = getDatabase();
+  const result = await database.class.all
     .filter({ students__name: 'Alison' })
     .order('name')
     .values('name', { flat: true });
   expect(result).toEqual(['Year 3']);
+  await database.end();
 });
 
 test('FindBy MultipleLevelsOfRelatedFields', async () => {
-  const connection = getDatabase();
-  const results = await connection.class.all
+  const database = getDatabase();
+  const results = await database.class.all
     .filter({ students__address__city: 'Moil' })
     .values('name', { flat: true, distinct: true });
   expect(results).toEqual(['Year 3']);
+  await database.end();
 });
 
 test('FindBy NotRelated', async () => {
-  const connection = getDatabase();
-  const results = await connection.student.all.filter({ address__isnull: true }).values('name', { flat: true });
+  const database = getDatabase();
+  const results = await database.student.all.filter({ address__isnull: true }).values('name', { flat: true });
   expect(results).toEqual(['John']);
+  await database.end();
 });
 
 test('FindBy NotRelated AndRelated', async () => {
-  const connection = getDatabase();
-  const results = await connection.student.all
+  const database = getDatabase();
+  const results = await database.student.all
     .filter({ address__isnull: true }, { address__city: 'Moil' })
     .values('name', { flat: true });
   expect(results).toEqual(['Troy', 'Alison', 'John']);
+  await database.end();
 });
 
 test('FindBy MultipleRelations InSameModel', async () => {
-  const connection = getDatabase();
-  const results = await connection.class.all
+  const database = getDatabase();
+  const results = await database.class.all
     .filter({ students__name: 'Troy', students__age: 5 })
     .values('name', { flat: true });
   expect(results).toEqual(['Year 3']);
+  await database.end();
 });
 
 test('FindBy MultipleRelations InDifferentModels', async () => {
-  const connection = getDatabase();
-  const results = await connection.student.all
+  const database = getDatabase();
+  const results = await database.student.all
     .filter({ class__name: 'Year 3', address__city: 'Moil' })
     .values('name', { flat: true });
   expect(results).toEqual(['Troy', 'Alison']);
+  await database.end();
 });
 
 test('FindBy RelationObject', async () => {
-  const connection = getDatabase();
-  const existingClass = await connection.class.all.filter({ name: 'Year 3' }).single();
-  const students = await connection.student.all
+  const database = getDatabase();
+  const existingClass = await database.class.all.filter({ name: 'Year 3' }).single();
+  const students = await database.student.all
     .filter({ class: existingClass })
     .order('name')
     .values('name', { flat: true });
   expect(students).toEqual(['Alison', 'Troy']);
+  await database.end();
 });
 
 test('Select RelatedField ManyToOne', async () => {
-  const connection = getDatabase();
-  const classesWithStudents = await connection.student.all.values('class__name', { flat: true, distinct: true });
+  const database = getDatabase();
+  const classesWithStudents = await database.student.all.values('class__name', { flat: true, distinct: true });
   classesWithStudents.sort();
   expect(classesWithStudents).toEqual(['Year 3', 'Year 4']);
+  await database.end();
 });
 
 test('Select RelatedField OneToMany', async () => {
-  const connection = getDatabase();
-  const studentsInClasses = await connection.class.all.values('students__name', { flat: true, distinct: true });
+  const database = getDatabase();
+  const studentsInClasses = await database.class.all.values('students__name', { flat: true, distinct: true });
   studentsInClasses.sort();
   // the null occurs because of an optional join. One class does not have any students.
   expect(studentsInClasses).toEqual(['Alison', 'Joe', 'John', 'Troy', null]);
+  await database.end();
 });
 
 // In this instance there is a where condition creating an inner join. The values respects the inner join.
 test('Select RelatedField InnerJoinedByFilter', async () => {
-  const connection = getDatabase();
-  const studentsInClasses = await connection.class.all
+  const database = getDatabase();
+  const studentsInClasses = await database.class.all
     .filter({ students__age__lte: 10 })
     .values('students__name', { flat: true, distinct: true });
   studentsInClasses.sort();
   expect(studentsInClasses).toEqual(['Alison', 'Joe', 'John', 'Troy']);
+  await database.end();
 });
 
 test('OrderBy RelatedField', async () => {
-  const connection = getDatabase();
-  const classesWithStudents = await connection.class.all
+  const database = getDatabase();
+  const classesWithStudents = await database.class.all
     .order('students__name')
     .values('students__name', { flat: true, distinct: true });
   expect(classesWithStudents).toEqual(['Alison', 'Joe', 'John', 'Troy', null]);
+  await database.end();
 });
 
 test('OrderBy RelatedField InnerJoinedByFilter', async () => {
-  const connection = getDatabase();
-  const classesWithStudents = await connection.class.all
+  const database = getDatabase();
+  const classesWithStudents = await database.class.all
     .filter({ students__age__lte: 10 })
     .order('students__name')
     .values('students__name', { flat: true, distinct: true });
   expect(classesWithStudents).toEqual(['Alison', 'Joe', 'John', 'Troy']);
+  await database.end();
 });
 
 test('Aggregate Count AllRecords', async () => {
-  const connection = getDatabase();
-  const studentCount = await connection.student.all.values(JazzDb.aggregation.count());
+  const database = getDatabase();
+  const studentCount = await database.student.all.values(JazzDb.aggregation.count());
   expect(studentCount).toEqual([{ all__count: '4' }]);
+  await database.end();
 });
 
 test('Aggregate Count Field', async () => {
-  const connection = getDatabase();
-  const studentCount = await connection.class.all.values(JazzDb.aggregation.count('helper'));
+  const database = getDatabase();
+  const studentCount = await database.class.all.values(JazzDb.aggregation.count('helper'));
   expect(studentCount).toEqual([{ helper__count: '1' }]);
+  await database.end();
 });
 
 test('Aggregate Count Field WithGroupBy', async () => {
-  const connection = getDatabase();
-  const aggregationResult = await connection.student.all
+  const database = getDatabase();
+  const aggregationResult = await database.student.all
     .order('class__name')
     .values('class__name', JazzDb.aggregation.count());
 
@@ -299,6 +338,7 @@ test('Aggregate Count Field WithGroupBy', async () => {
     { name: 'Year 3', all__count: '2' },
     { name: 'Year 4', all__count: '2' },
   ]);
+  await database.end();
 });
 
 const aggregationTest = {
@@ -308,12 +348,13 @@ const aggregationTest = {
   sum: [JazzDb.aggregation.sum, 29],
 };
 each(Object.keys(aggregationTest)).test('Aggregate %s Field', async (aggregationType) => {
-  const connection = getDatabase();
+  const database = getDatabase();
   const [aggregation, expectedResult] = aggregationTest[aggregationType];
-  const aggregationResult = await connection.student.all.values(aggregation('age'), { flat: true });
+  const aggregationResult = await database.student.all.values(aggregation('age'), { flat: true });
 
   // decimal values and big ints are strings
   expect(+aggregationResult[0]).toEqual(expectedResult);
+  await database.end();
 });
 
 // prettier-ignore
@@ -324,30 +365,30 @@ const aggregationWithGroupByTest = {
   sum: [JazzDb.aggregation.sum, [['Year 3', 11], [ 'Year 4', 18]]],
 };
 each(Object.keys(aggregationWithGroupByTest)).test('Aggregate %s Field WithGroupBy', async (aggregationType) => {
-  const connection = getDatabase();
+  const database = getDatabase();
   const [aggregation, expectedResult] = aggregationWithGroupByTest[aggregationType];
-  const aggregationResult = await connection.student.all
-    .order('class__name')
-    .values('class__name', aggregation('age'), {
-      flat: true,
-    });
+  const aggregationResult = await database.student.all.order('class__name').values('class__name', aggregation('age'), {
+    flat: true,
+  });
 
   const aggregationResultWithNumbers = aggregationResult.map((i) => [i[0], +i[1]]);
   expect(aggregationResultWithNumbers).toEqual(expectedResult);
+  await database.end();
 });
 
 test('Aggregate Related Field', async () => {
-  const connection = getDatabase();
-  const aggregationResult = await connection.class.all.values('name', JazzDb.aggregation.min('students__age'), {
+  const database = getDatabase();
+  const aggregationResult = await database.class.all.values('name', JazzDb.aggregation.min('students__age'), {
     flat: true,
   });
 
   expect(aggregationResult[0]).toEqual(['Year 3', 5]);
+  await database.end();
 });
 
 test('Aggregate Multiple Fields', async () => {
-  const connection = getDatabase();
-  const aggregationResult = await connection.class.all
+  const database = getDatabase();
+  const aggregationResult = await database.class.all
     .filter({ name: 'Year 3' })
     .order('students__name')
     .values('name', 'students__name', JazzDb.aggregation.min('students__age'), {
@@ -358,134 +399,147 @@ test('Aggregate Multiple Fields', async () => {
     ['Year 3', 'Alison', 6],
     ['Year 3', 'Troy', 5],
   ]);
+  await database.end();
 });
 
 test('Save ByInsert UpdatesPrimaryKey', async () => {
-  const connection = getDatabase();
+  const database = getDatabase();
   const item = { a: 1 };
-  const id = await connection.savetest1.save(item);
+  const id = await database.savetest1.save(item);
   expect(item.id).toBeGreaterThan(0);
   expect(id).toEqual(item.id);
+  await database.end();
 });
 
 test('Save ByInsert InsertsCorrectly', async () => {
-  const connection = getDatabase();
+  const database = getDatabase();
   const expectedNumber = Math.floor(Math.random() * 1e6);
   const item = { a: expectedNumber };
-  await connection.savetest1.save(item);
-  const fetched = await connection.savetest1.all.filter({ id: item.id }).single();
+  await database.savetest1.save(item);
+  const fetched = await database.savetest1.all.filter({ id: item.id }).single();
   expect(fetched).toEqual(item);
+  await database.end();
 });
 
 each(['NoAutoPrimaryKey', 'MultipleKeys']).test('Save ByInsert %s InsertsCorrectly', async () => {
-  const connection = getDatabase();
+  const database = getDatabase();
   const id = Math.floor(Math.random() * 1e6);
   const item = { id, a: 2, b: 3 };
-  await connection.savetest2.save(item);
-  const fetched = await connection.savetest2.all.filter({ id }).single();
+  await database.savetest2.save(item);
+  const fetched = await database.savetest2.all.filter({ id }).single();
   expect(fetched).toEqual(item);
+  await database.end();
 });
 
 test('Save ByUpdate UpdatesCorrectly', async () => {
-  const connection = getDatabase();
+  const database = getDatabase();
   const expectedNumber = Math.floor(Math.random() * 1e6);
   const item = { a: 1 };
-  await connection.savetest1.save(item);
+  await database.savetest1.save(item);
   const insertId = item.id;
   item.a = expectedNumber;
-  await connection.savetest1.save(item);
-  const fetched = await connection.savetest1.all.filter({ id: item.id }).single();
+  await database.savetest1.save(item);
+  const fetched = await database.savetest1.all.filter({ id: item.id }).single();
   expect(fetched).toEqual(item);
   expect(insertId).toBe(item.id);
+  await database.end();
 });
 
 test('Transaction CantFetchDataInsideTransaction', async () => {
-  const connection = getDatabase();
-  const transaction = await connection.transaction();
+  const database = getDatabase();
+  const transaction = await database.transaction();
   const id = await transaction.savetest1.save({ a: 1 });
   const insideTransaction = await transaction.savetest1.all.filter({ id }).single();
-  const outsideTransaction = await connection.savetest1.all.filter({ id }).single();
+  const outsideTransaction = await database.savetest1.all.filter({ id }).single();
+  transaction.rollback();
   expect(insideTransaction).toBeDefined();
   expect(outsideTransaction).toBeUndefined();
+  await database.end();
 });
 
 test('Transaction CanCommit', async () => {
-  const connection = getDatabase();
-  const transaction = await connection.transaction();
+  const database = getDatabase();
+  const transaction = await database.transaction();
   const id = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
-  const result = await connection.savetest1.all.filter({ id }).single();
+  const result = await database.savetest1.all.filter({ id }).single();
   expect(result).toBeDefined();
+  await database.end();
 });
 
 test('Transaction CanRollback', async () => {
-  const connection = getDatabase();
-  const transaction = await connection.transaction();
+  const database = getDatabase();
+  const transaction = await database.transaction();
   const id = await transaction.savetest1.save({ a: 1 });
   await transaction.rollback();
-  const result = await connection.savetest1.all.filter({ id }).single();
+  const result = await database.savetest1.all.filter({ id }).single();
   expect(result).toBeUndefined();
+  await database.end();
 });
 
 test('Transaction Checkpoint RollbackInNestedTransaction', async () => {
-  const connection = getDatabase();
-  const transaction = await connection.transaction();
+  const database = getDatabase();
+  const transaction = await database.transaction();
   const id = await transaction.savetest1.save({ a: 1 });
   await transaction.checkpoint();
 
   const nestedId = await transaction.savetest1.save({ a: 1 });
   await transaction.rollback();
-  const firstTransactionBeforeCommit = await connection.savetest1.all.filter({ id }).single();
+  const firstTransactionBeforeCommit = await database.savetest1.all.filter({ id }).single();
   await transaction.commit();
-  const firstTransactionAfterCommit = await connection.savetest1.all.filter({ id }).single();
-  const nestedRecord = await connection.savetest1.all.filter({ id: nestedId }).single();
+  const firstTransactionAfterCommit = await database.savetest1.all.filter({ id }).single();
+  const nestedRecord = await database.savetest1.all.filter({ id: nestedId }).single();
 
   expect(firstTransactionBeforeCommit).toBeUndefined();
   expect(firstTransactionAfterCommit).toBeDefined();
   expect(nestedRecord).toBeUndefined();
+  await database.end();
 });
 
 test('Transaction Checkpoint CommitInNestedTransaction', async () => {
-  const connection = getDatabase();
-  const transaction = await connection.transaction();
+  const database = getDatabase();
+  const transaction = await database.transaction();
   const id = await transaction.savetest1.save({ a: 1 });
   await transaction.checkpoint();
   const nestedId = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
-  const firstTransactionBeforeCommit = await connection.savetest1.all.filter({ id }).single();
+  const firstTransactionBeforeCommit = await database.savetest1.all.filter({ id }).single();
   await transaction.commit();
-  const firstTransactionAfterCommit = await connection.savetest1.all.filter({ id }).single();
-  const nestedRecord = await connection.savetest1.all.filter({ id: nestedId }).single();
+  const firstTransactionAfterCommit = await database.savetest1.all.filter({ id }).single();
+  const nestedRecord = await database.savetest1.all.filter({ id: nestedId }).single();
 
   expect(firstTransactionBeforeCommit).toBeUndefined();
   expect(firstTransactionAfterCommit).toBeDefined();
   expect(nestedRecord).toBeDefined();
+  await database.end();
 });
 
 test('Transaction Checkpoint MultipleCheckpoints Commit', async () => {
-  const connection = getDatabase();
-  const transaction = await connection.transaction();
+  const database = getDatabase();
+  const transaction = await database.transaction();
   await transaction.checkpoint();
   await transaction.checkpoint();
   const id = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
   await transaction.commit();
   await transaction.commit();
-  const record = await connection.savetest1.all.filter({ id }).single();
+  const record = await database.savetest1.all.filter({ id }).single();
   expect(record).toBeDefined();
+  await database.end();
 });
 
 test('Transaction Checkpoint SeriesOfCommitsAndRollbacks', async () => {
-  const connection = getDatabase();
-  const transaction = await connection.transaction();
+  const database = getDatabase();
+  const transaction = await database.transaction();
   await transaction.checkpoint();
   await transaction.checkpoint();
   const id = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
   await transaction.rollback();
   await transaction.commit();
-  const record = await connection.savetest1.all.filter({ id }).single();
+  const record = await database.savetest1.all.filter({ id }).single();
   expect(record).toBeUndefined();
+  await database.end();
 });
 
 const transactionCompleteTests = (() => {
@@ -512,39 +566,68 @@ const transactionCompleteTests = (() => {
 each(transactionCompleteTests.testNames).test(
   'Transaction FinalisedTransaction By %s DoesNotAllow %s',
   async (operation, command) => {
-    const connection = getDatabase();
-    const transaction = await connection.transaction();
+    const database = getDatabase();
+    const transaction = await database.transaction();
     const { operations, commands } = transactionCompleteTests;
     operations[operation](transaction);
-    expect(commands[command](transaction)).rejects.toThrow();
+    await expect(commands[command](transaction)).rejects.toThrow();
+    await database.end();
   }
 );
 
 test('Transaction SafeWrapper CanCommit', async () => {
-  const connection = getDatabase();
+  const database = getDatabase();
   let id;
-  await connection.transaction(async (transaction) => {
+  await database.transaction(async (transaction) => {
     id = await transaction.savetest1.save({ a: 1 });
   });
-  const record = await connection.savetest1.all.filter({ id }).single();
+  const record = await database.savetest1.all.filter({ id }).single();
   expect(record).toBeDefined();
+  await database.end();
 });
 
 test('Transaction SafeWrapper CanReject', async () => {
-  const connection = getDatabase();
+  const database = getDatabase();
   let id;
   const toThrow = new Error();
   let thrownException;
 
   try {
-    await connection.transaction(async (transaction) => {
+    await database.transaction(async (transaction) => {
       id = await transaction.savetest1.save({ a: 1 });
       throw toThrow;
     });
   } catch (e) {
     thrownException = e;
   }
-  const record = await connection.savetest1.all.filter({ id }).single();
+  const record = await database.savetest1.all.filter({ id }).single();
   expect(record).toBeUndefined();
   expect(thrownException).toBe(toThrow);
+  await database.end();
+});
+
+test('Delete CanDeleteAll', async () => {
+  const database = getDatabase();
+  const transaction = await database.transaction();
+  await transaction.savetest1.all.delete();
+  await transaction.savetest1.save({ a: 1 });
+  const count = await transaction.savetest1.all.delete();
+  transaction.rollback();
+  expect(count).toBe(1);
+  await database.end();
+});
+
+test('Delete CanDelete ByQuery', async () => {
+  const database = getDatabase();
+  const canDeleteNumber = Math.floor(Math.random() * 1e6);
+  await database.savetest1.all.filter({ a: canDeleteNumber }).delete();
+  const transaction = await database.transaction();
+  await transaction.savetest1.save({ a: canDeleteNumber });
+  await transaction.savetest1.save({ a: 3433 });
+  const itemsDeletedFirstAttempt = await transaction.savetest1.all.filter({ a: canDeleteNumber }).delete();
+  const itemsDeletedSecondAttempt = await transaction.savetest1.all.filter({ a: canDeleteNumber }).delete();
+  transaction.rollback();
+  expect(itemsDeletedFirstAttempt).toBe(1);
+  expect(itemsDeletedSecondAttempt).toBe(0);
+  await database.end();
 });
