@@ -53,6 +53,11 @@ export const generateWhere = (where, options) => {
   }, wrapConditionIfRequired(fields));
 };
 
+export const generateWhereWithPrefix = (where, options) => {
+  const result = generateWhere(where, options);
+  return result.length > 0 ? joinSql([' where ', result]) : result;
+};
+
 // Sql is in the format [query, data, query continued, data 2, etc.]
 // a query will always start with sql. Sql will occur on every even entry.
 export const joinSql = (entries) => {

@@ -1,10 +1,10 @@
 import { flattenMultiArray } from '../utilities';
-import { generateWhere, joinSql, sqlArrayToEscaped } from '../sql';
-import { registerBackend } from './';
+import { generateWhereWithPrefix, joinSql, sqlArrayToEscaped } from '../sql';
+import { registerBackend, displayFlat, displayCount, displayObject } from './';
 import url from 'url';
 // If you use Client instead of Pool every query times out ???
 import { Pool as postgresClient } from 'pg';
-import { countType, numberType, averageType, sumType } from '../model';
+import { countType } from '../model';
 
 const escapeTableOrField = (name) => `"${name}"`;
 
@@ -73,8 +73,7 @@ const query = async (filter, connection) => {
     .filter((entry) => entry != '')
     .join(' ');
 
-  const where = generateWhere(filter.where, { escapeField });
-  const wherePrefix = where.length > 0 ? ' where ' : '';
+  const where = generateWhereWithPrefix(filter.where, { escapeField });
 
   const options = { escapeField, escapeTable: escapeTableOrField };
 
@@ -99,10 +98,33 @@ const query = async (filter, connection) => {
   const groupByPrefix = groupBy.length > 0 ? ' group by ' : '';
 
   return runSql(
-    joinSql([startSql, joinModels, wherePrefix, where, groupByPrefix, groupBy, orderPrefix, orderSql, limitSql]),
-    filter.flat,
+    joinSql([startSql, joinModels, where, groupByPrefix, groupBy, orderPrefix, orderSql, limitSql]),
+    filter.flat ? displayFlat : displayObject,
     connection
   );
+};
+
+const deleteRecords = (filter, connection) => {
+  const escapedModelName = escapeTableOrField(filter.primaryModel);
+  const where = generateWhereWithPrefix(filter.where, { escapeField });
+  return runSql(joinSql([`delete from ${escapedModelName}`, where]), displayCount, connection);
+};
+
+const updateRecords = (filter, updates, connection) => {
+  const escapedModelName = escapeTableOrField(filter.primaryModel);
+  const where = generateWhereWithPrefix(filter.where, { escapeField });
+  const updateEntries = Object.entries(updates);
+  if (updateEntries.length === 0) {
+    return 0;
+  }
+
+  const updateFields = updateEntries.reduce((current, [field, value]) => {
+    const prefix = current.length === 0 ? '' : ', ';
+    const escapedField = escapeTableOrField(field);
+    return current.concat(`${prefix}${field}=`, value);
+  }, []);
+
+  return runSql(joinSql([`update ${escapedModelName} set `, updateFields, where]), displayCount, connection);
 };
 
 const generateOrder = (order) => {
@@ -114,16 +136,20 @@ const generateOrder = (order) => {
   return `order by ${orderFields}`;
 };
 
-const runSql = async (sql, flat, connection) => {
+const runSql = async (sql, display, connection) => {
   const [fullSql, values] = sqlArrayToEscaped(sql, (index) => `$${index + 1}`);
 
   const results = await connection.query({
-    rowMode: flat ? 'array' : 'objects',
+    rowMode: display === displayFlat ? 'array' : 'objects',
     values,
     text: fullSql,
   });
 
-  const isFlatAndOnlyOneField = flat && results.rows.length > 0 && results.rows[0].length === 1;
+  if (display === displayCount) {
+    return results.rowCount;
+  }
+
+  const isFlatAndOnlyOneField = display === displayFlat && results.rows.length > 0 && results.rows[0].length === 1;
   if (isFlatAndOnlyOneField) {
     return flattenMultiArray(results.rows);
   }
@@ -132,7 +158,7 @@ const runSql = async (sql, flat, connection) => {
 };
 
 export const transaction = async (connection, endConnection) => {
-  const sql = (sql) => runSql(sql, false, connection);
+  const sql = (sql) => runSql(sql, displayObject, connection);
 
   let level = 1;
   await sql('begin');
@@ -208,7 +234,7 @@ export const save = async (model, record, primaryKeyName, connection) => {
     updateKeyValues,
     ` returning ${escapedPrimaryKeyName}`,
   ]);
-  const result = await runSql(sql, true, connection);
+  const result = await runSql(sql, displayFlat, connection);
   return result[0];
 };
 
@@ -251,9 +277,14 @@ export const register = () => {
     }
 
     const postgresConnection = new postgresClient(connection);
-    return createEngineBundleFromConnection(
-      () => postgresConnection.connect(),
-      (connection) => connection.release()
+    return Object.assign(
+      createEngineBundleFromConnection(
+        () => postgresConnection.connect(),
+        (connection) => connection.release()
+      ),
+      {
+        end: () => postgresConnection.end(),
+      }
     );
   });
 };
@@ -266,9 +297,9 @@ const createEngineBundleFromConnection = (createConnection, endConnection) => ({
     endConnection?.(connection);
     return result;
   },
-  runSql: async (sql, flat) => {
+  runSql: async (sql, display) => {
     const connection = await createConnection();
-    const result = await runSql(sql, flat, connection);
+    const result = await runSql(sql, display, connection);
     endConnection?.(connection);
     return result;
   },
@@ -279,6 +310,18 @@ const createEngineBundleFromConnection = (createConnection, endConnection) => ({
   save: async (model, record, primaryKeyName) => {
     const connection = await createConnection();
     const result = await save(model, record, primaryKeyName, connection);
+    endConnection?.(connection);
+    return result;
+  },
+  delete: async (filter) => {
+    const connection = await createConnection();
+    const result = await deleteRecords(filter, connection);
+    endConnection?.(connection);
+    return result;
+  },
+  update: async (filter, updates) => {
+    const connection = await createConnection();
+    const result = await updateRecords(filter, updates, connection);
     endConnection?.(connection);
     return result;
   },
