@@ -217,7 +217,7 @@ class Query {
   }
 
   async count() {
-    const [result] = await this.values(JazzDb.aggregation.count(), { flat: true });
+    const [result] = await this.values(aggregation.count(), { flat: true });
     return +result;
   }
 
@@ -254,12 +254,12 @@ const save = (modelName, { schema, backend }) => {
 (() => {
   registerPostgres();
 
-  if (process.env.DATABASE) {
-    createDatabase(process.env.DATABASE);
+  if (process.env.NODE_DATABASE) {
+    createDatabase(process.env.NODE_DATABASE);
   }
 })();
 
-export const JazzDb = {
+export default {
   createDatabase,
   addSchema,
   getDatabase,

@@ -1,14 +1,14 @@
 import { defaultModels } from './constants';
-import { JazzDb } from '../';
+import Jazz from '../';
 import each from 'jest-each';
 
 const postgresConnectionString = 'postgres://test:qwerty@localhost/test';
 
 const getDatabase = () => {
   const databaseName = Symbol();
-  JazzDb.createDatabase(postgresConnectionString, databaseName);
-  JazzDb.addSchema(defaultModels, databaseName);
-  return JazzDb.getDatabase(databaseName);
+  Jazz.createDatabase(postgresConnectionString, databaseName);
+  Jazz.addSchema(defaultModels, databaseName);
+  return Jazz.getDatabase(databaseName);
 };
 
 afterAll(async () => {
@@ -316,14 +316,14 @@ test('OrderBy RelatedField InnerJoinedByFilter', async () => {
 
 test('Aggregate Count AllRecords', async () => {
   const database = getDatabase();
-  const studentCount = await database.student.all.values(JazzDb.aggregation.count());
+  const studentCount = await database.student.all.values(Jazz.aggregation.count());
   expect(studentCount).toEqual([{ all__count: '4' }]);
   await database.end();
 });
 
 test('Aggregate Count Field', async () => {
   const database = getDatabase();
-  const studentCount = await database.class.all.values(JazzDb.aggregation.count('helper'));
+  const studentCount = await database.class.all.values(Jazz.aggregation.count('helper'));
   expect(studentCount).toEqual([{ helper__count: '1' }]);
   await database.end();
 });
@@ -332,7 +332,7 @@ test('Aggregate Count Field WithGroupBy', async () => {
   const database = getDatabase();
   const aggregationResult = await database.student.all
     .order('class__name')
-    .values('class__name', JazzDb.aggregation.count());
+    .values('class__name', Jazz.aggregation.count());
 
   expect(aggregationResult).toEqual([
     { name: 'Year 3', all__count: '2' },
@@ -342,10 +342,10 @@ test('Aggregate Count Field WithGroupBy', async () => {
 });
 
 const aggregationTest = {
-  min: [JazzDb.aggregation.min, 5],
-  max: [JazzDb.aggregation.max, 10],
-  average: [JazzDb.aggregation.average, 7.25],
-  sum: [JazzDb.aggregation.sum, 29],
+  min: [Jazz.aggregation.min, 5],
+  max: [Jazz.aggregation.max, 10],
+  average: [Jazz.aggregation.average, 7.25],
+  sum: [Jazz.aggregation.sum, 29],
 };
 each(Object.keys(aggregationTest)).test('Aggregate %s Field', async (aggregationType) => {
   const database = getDatabase();
@@ -359,10 +359,10 @@ each(Object.keys(aggregationTest)).test('Aggregate %s Field', async (aggregation
 
 // prettier-ignore
 const aggregationWithGroupByTest = {
-  min: [JazzDb.aggregation.min, [['Year 3', 5], [ 'Year 4', 8]]],
-  max: [JazzDb.aggregation.max, [['Year 3', 6], [ 'Year 4', 10]]],
-  average: [JazzDb.aggregation.average, [['Year 3', 5.5], [ 'Year 4', 9]]],
-  sum: [JazzDb.aggregation.sum, [['Year 3', 11], [ 'Year 4', 18]]],
+  min: [Jazz.aggregation.min, [['Year 3', 5], [ 'Year 4', 8]]],
+  max: [Jazz.aggregation.max, [['Year 3', 6], [ 'Year 4', 10]]],
+  average: [Jazz.aggregation.average, [['Year 3', 5.5], [ 'Year 4', 9]]],
+  sum: [Jazz.aggregation.sum, [['Year 3', 11], [ 'Year 4', 18]]],
 };
 each(Object.keys(aggregationWithGroupByTest)).test('Aggregate %s Field WithGroupBy', async (aggregationType) => {
   const database = getDatabase();
@@ -378,7 +378,7 @@ each(Object.keys(aggregationWithGroupByTest)).test('Aggregate %s Field WithGroup
 
 test('Aggregate Related Field', async () => {
   const database = getDatabase();
-  const aggregationResult = await database.class.all.values('name', JazzDb.aggregation.min('students__age'), {
+  const aggregationResult = await database.class.all.values('name', Jazz.aggregation.min('students__age'), {
     flat: true,
   });
 
@@ -391,7 +391,7 @@ test('Aggregate Multiple Fields', async () => {
   const aggregationResult = await database.class.all
     .filter({ name: 'Year 3' })
     .order('students__name')
-    .values('name', 'students__name', JazzDb.aggregation.min('students__age'), {
+    .values('name', 'students__name', Jazz.aggregation.min('students__age'), {
       flat: true,
     });
 

@@ -1,32 +1,32 @@
-import { field } from '../model';
+import Jazz from '../';
 
 export const defaultModels = {
   class: {
-    id: field.number({ primaryKey: true }),
+    id: Jazz.field.number({ primaryKey: true }),
     name: {},
     teacher: {},
     funding: {},
     helper: {},
-    students: field.hasMany('student', { relatedField: 'class' }),
+    students: Jazz.field.hasMany('student', { relatedField: 'class' }),
   },
   student: {
-    id: field.number({ primaryKey: true }),
+    id: Jazz.field.number({ primaryKey: true }),
     name: {},
-    age: field.number(),
-    class: field.hasOne('class'),
-    address: field.hasOne('address'),
+    age: Jazz.field.number(),
+    class: Jazz.field.hasOne('class'),
+    address: Jazz.field.hasOne('address'),
   },
   address: {
-    id: field.number({ primaryKey: true }),
+    id: Jazz.field.number({ primaryKey: true }),
     city: {},
-    student: field.hasMany('student', { relatedField: 'address' }),
+    student: Jazz.field.hasMany('student', { relatedField: 'address' }),
   },
   // playground for inserting data which can be deleted which wont interfere with read tests
   savetest1: {
-    id: field.number({ primaryKey: true }),
+    id: Jazz.field.number({ primaryKey: true }),
   },
   savetest2: {
-    id: field.number({ primaryKey: true }),
+    id: Jazz.field.number({ primaryKey: true }),
     a: {},
     b: {},
   },
