@@ -1,0 +1,6 @@
+site_name: Jazz
+markdown_extensions:
+  - admonition
+  - codehilite
+theme:
+  name: material
