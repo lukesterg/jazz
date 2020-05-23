@@ -121,7 +121,7 @@ const updateRecords = (filter, updates, connection) => {
   const updateFields = updateEntries.reduce((current, [field, value]) => {
     const prefix = current.length === 0 ? '' : ', ';
     const escapedField = escapeTableOrField(field);
-    return current.concat(`${prefix}${field}=`, value);
+    return current.concat(`${prefix}${escapedField}=`, value);
   }, []);
 
   return runSql(joinSql([`update ${escapedModelName} set `, updateFields, where]), displayCount, connection);

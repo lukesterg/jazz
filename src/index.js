@@ -1,7 +1,15 @@
 import { register as registerPostgres } from './backend/postgres';
 import { createBackend, displayFlat, displayObject, displayCount } from './backend';
 import { query } from './filter';
-import { addRelatedFieldsToResult, field, aggregation, aggregationSymbol, getPrimaryKeyFromModel } from './model';
+import {
+  addRelatedFieldsToResult,
+  field,
+  aggregation,
+  aggregationSymbol,
+  getPrimaryKeyFromModel,
+  flattenRelationshipsForSaving,
+  markRecordAsFetchedFromDatabase,
+} from './model';
 
 /**
  * Database state is comprised of:
@@ -10,7 +18,7 @@ import { addRelatedFieldsToResult, field, aggregation, aggregationSymbol, getPri
  *  materialized - how the developer interfaces with the database.
  */
 
-const defaultDatabase = Symbol('default');
+const defaultDatabase = '';
 let databaseState = {};
 
 const reservedModelNames = ['sql', 'databaseType', 'transaction'];
@@ -194,6 +202,8 @@ class Query {
           const query = new Query(model, this._databaseState);
           return query.filter({ [field]: value });
         });
+
+        markRecordAsFetchedFromDatabase(result);
         return result;
       });
     };
@@ -245,9 +255,10 @@ class Query {
 const save = (modelName, { schema, backend }) => {
   return async (record) => {
     const primaryKey = getPrimaryKeyFromModel(schema[modelName]);
-    const id = await backend.save(modelName, record, primaryKey);
+    const flattenedRecord = flattenRelationshipsForSaving(record, schema, modelName);
+    const id = await backend.save(modelName, flattenedRecord, primaryKey);
     record[primaryKey] = id;
-    return id;
+    return record;
   };
 };
 

@@ -13,8 +13,15 @@ const getDatabase = () => {
 
 afterAll(async () => {
   const database = getDatabase();
-  await database.savetest1.all.delete();
-  await database.savetest2.all.delete();
+
+  /*
+  await Promise.all([
+    database.savetest1.all.delete(),
+    database.savetest2.all.delete(),
+    database.savetest3_book.all.delete(),
+    database.savetest3_author.all.delete(),
+  ]);
+  */
   await database.end();
 });
 
@@ -404,10 +411,8 @@ test('Aggregate Multiple Fields', async () => {
 
 test('Save ByInsert UpdatesPrimaryKey', async () => {
   const database = getDatabase();
-  const item = { a: 1 };
-  const id = await database.savetest1.save(item);
+  const item = await database.savetest1.save({ a: 1 });
   expect(item.id).toBeGreaterThan(0);
-  expect(id).toEqual(item.id);
   await database.end();
 });
 
@@ -436,14 +441,44 @@ test('Save ByUpdate UpdatesCorrectly', async () => {
   const expectedNumber = Math.floor(Math.random() * 1e6);
   const item = { a: 1 };
   await database.savetest1.save(item);
-  const insertId = item.id;
   item.a = expectedNumber;
   await database.savetest1.save(item);
   const fetched = await database.savetest1.all.filter({ id: item.id }).single();
   expect(fetched).toEqual(item);
-  expect(insertId).toBe(item.id);
   await database.end();
 });
+
+test('Save Relation HasOne', async () => {
+  const database = getDatabase();
+  const record = { name: 'Fred' };
+  await database.savetest3_author.save(record);
+  const fetched = await database.savetest3_author.all.filter({ id: record.id }).single();
+  expect(fetched).toEqual(record);
+  await database.end();
+});
+
+test('Save Relation HasOne Update WithNoRelationChange', async () => {});
+
+test('Save Relation HasOne Update WithRelationChange', async () => {});
+
+test('Save Relation HasMany', async () => {
+  const database = getDatabase();
+  const author = await database.savetest3_author.save({ name: 'Alice' });
+  const book = await database.savetest3_book.save({
+    name: 'The big book',
+    author,
+  });
+
+  const fetchedAuthor = await database.savetest3_author.all.filter({ id: author.id }).single();
+  const fetchedBooks = await fetchedAuthor.books();
+  delete book.author;
+  expect(fetchedBooks).toEqual([book]);
+  await database.end();
+});
+
+test('Save Relation HasMany Update WithNoRelationChange', async () => {});
+
+test('Save Relation HasMany Update WithRelationChange', async () => {});
 
 test('Transaction CantFetchDataInsideTransaction', async () => {
   const database = getDatabase();

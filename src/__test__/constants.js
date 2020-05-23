@@ -30,4 +30,14 @@ export const defaultModels = {
     a: {},
     b: {},
   },
+  savetest3_author: {
+    id: Jazz.field.number({ primaryKey: true }),
+    name: {},
+    books: Jazz.field.hasMany('savetest3_book', { relatedField: 'author' }),
+  },
+  savetest3_book: {
+    id: Jazz.field.number({ primaryKey: true }),
+    name: {},
+    author: Jazz.field.hasOne('savetest3_author'),
+  },
 };
