@@ -63,9 +63,6 @@ export const aggregation = {
 
 const relatedFieldTypes = [hasOneType, hasManyType];
 
-const recordFetchedFromDatabase = Symbol();
-export const markRecordAsFetchedFromDatabase = (record) => addSymbol(record, recordFetchedFromDatabase);
-export const wasRecordFetchedFromDatabase = (record) => hasSymbol(record, recordFetchedFromDatabase);
 export const isRelatedField = (field) => relatedFieldTypes.indexOf(field.type) >= 0;
 
 const generateRelatedFieldQuery = (fieldValue, models, primaryKeyValue, existingValue, queryGenerator) => {
@@ -175,12 +172,15 @@ export const flattenRelationshipsForSaving = (record, schema, primaryModel) => {
     delete recordCopy[key];
   });
   hasOne.forEach(([key, fieldValue]) => {
-    if (wasRecordFetchedFromDatabase(recordCopy)) {
-      recordCopy[key] = recordCopy[key](getPrimaryKey);
+    const relationValue = record[key];
+    if (typeof relationValue === 'function') {
+      recordCopy[key] = relationValue(getPrimaryKey);
       return;
     }
 
-    recordCopy[key] = getPrimaryKeyValueFromRecord(schema, fieldValue.relatedModel, recordCopy[key]);
+    if (relationValue) {
+      recordCopy[key] = getPrimaryKeyValueFromRecord(schema, fieldValue.relatedModel, relationValue);
+    }
   });
 
   return recordCopy;

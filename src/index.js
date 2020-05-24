@@ -8,7 +8,6 @@ import {
   aggregationSymbol,
   getPrimaryKeyFromModel,
   flattenRelationshipsForSaving,
-  markRecordAsFetchedFromDatabase,
 } from './model';
 
 /**
@@ -203,7 +202,6 @@ class Query {
           return query.filter({ [field]: value });
         });
 
-        markRecordAsFetchedFromDatabase(result);
         return result;
       });
     };
