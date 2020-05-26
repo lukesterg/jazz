@@ -546,11 +546,11 @@ test('Transaction CanRollback', async () => {
   await database.end();
 });
 
-test('Transaction Checkpoint RollbackInNestedTransaction', async () => {
+test('Transaction transaction RollbackInNestedTransaction', async () => {
   const database = getDatabase();
   const transaction = await database.transaction();
   const id = await transaction.savetest1.save({ a: 1 });
-  await transaction.checkpoint();
+  await transaction.transaction();
 
   const nestedId = await transaction.savetest1.save({ a: 1 });
   await transaction.rollback();
@@ -565,11 +565,11 @@ test('Transaction Checkpoint RollbackInNestedTransaction', async () => {
   await database.end();
 });
 
-test('Transaction Checkpoint CommitInNestedTransaction', async () => {
+test('Transaction transaction CommitInNestedTransaction', async () => {
   const database = getDatabase();
   const transaction = await database.transaction();
   const id = await transaction.savetest1.save({ a: 1 });
-  await transaction.checkpoint();
+  await transaction.transaction();
   const nestedId = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
   const firstTransactionBeforeCommit = await database.savetest1.all.filter({ id }).single();
@@ -583,11 +583,11 @@ test('Transaction Checkpoint CommitInNestedTransaction', async () => {
   await database.end();
 });
 
-test('Transaction Checkpoint MultipleCheckpoints Commit', async () => {
+test('Transaction transaction Multipletransactions Commit', async () => {
   const database = getDatabase();
   const transaction = await database.transaction();
-  await transaction.checkpoint();
-  await transaction.checkpoint();
+  await transaction.transaction();
+  await transaction.transaction();
   const id = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
   await transaction.commit();
@@ -597,11 +597,11 @@ test('Transaction Checkpoint MultipleCheckpoints Commit', async () => {
   await database.end();
 });
 
-test('Transaction Checkpoint SeriesOfCommitsAndRollbacks', async () => {
+test('Transaction transaction SeriesOfCommitsAndRollbacks', async () => {
   const database = getDatabase();
   const transaction = await database.transaction();
-  await transaction.checkpoint();
-  await transaction.checkpoint();
+  await transaction.transaction();
+  await transaction.transaction();
   const id = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
   await transaction.rollback();
@@ -621,7 +621,7 @@ const transactionCompleteTests = (() => {
     ...operations,
     sql: (transaction) => transaction.sql`select * from class`,
     query: (transaction) => transaction.savetest1.all.single(),
-    checkpoint: (transaction) => transaction.checkpoint(),
+    transaction: (transaction) => transaction.transaction(),
   };
 
   const commandKeys = Object.keys(commands);

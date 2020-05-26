@@ -1,19 +1,10 @@
-import Jazz from '../src';
-/*
-  To run this example first run the following SQL:
+# Creating and updating records
 
-  create table employees (
-    id serial not null,
-    name varchar(100) not null,
-    age int,
-    primary key(id)
-  );
+Jazz allows saving data to a database by calling the `save` method.
 
-  Ensure your NODE_DATABASE environment variable is setup to point to the database where you created this table.
-
-  This script can be run on Mac OS and Linux using the following (remember to update the database path):
-  `NODE_DATABASE=postgres://test:qwerty@localhost/test npx babel-node examples/saving-data.js`
-*/
+```js
+// Full running example (with more instructions) can be found in Github repository in folder examples/saving-data.js.
+import Jazz from 'jazz-orm';
 
 const schema = {
   employees: {
@@ -50,3 +41,4 @@ async function main() {
 }
 
 main().catch((error) => console.error('error occurred', error));
+```

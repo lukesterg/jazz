@@ -1,26 +1,10 @@
-import Jazz from '../src';
-/*
-  To run this example first run the following SQL:
+# Queries
 
-  create table employees (
-    id serial not null,
-    name varchar(100) not null,
-    age int,
-    primary key(id)
-  );
+JavaScript objects representing database records can be queried using JavaScript. These records can be filtered, aggregated and ordered.
 
-  create table contacts (
-    id serial not null,
-    employee int references employees(id) on delete cascade,
-    phone varchar(40) not null,
-    primary key(id)
-  );
-
-  Ensure your NODE_DATABASE environment variable is setup to point to the database where you created this table.
-
-  This script can be run on Mac OS and Linux using the following (remember to update the database path):
-  `NODE_DATABASE=postgres://test:qwerty@localhost/test npx babel-node examples/querying.js`
-*/
+```js
+// Full running example (with more instructions) can be found in Github repository in folder examples/querying.js.
+import Jazz from 'jazz-orm';
 
 const schema = {
   employees: {
@@ -213,17 +197,6 @@ async function main() {
   // Relationships
   // ****************************************************************
 
-  const bobsRecord = await database.employees.all.filter({ name: 'Bob' }).single();
-  const bobsContacts = await bobsRecord.contacts();
-  console.log(`List of Bob's contacts`, bobsContacts);
-  // List of Bob's contacts [ { id: 1, phone: '0411521369' }, { id: 2, phone: '0432130558' } ]
-
-  const employeeWithNumber = await database.employees.all
-    .filter({ contacts__phone: '0411456789' })
-    .values('name', 'contacts__phone', { flat: true });
-  console.log(`Employees with phone number`, employeeWithNumber);
-  // Employees with phone number [ [ 'Alice', '0411456789' ] ]
-
   // ****************************************************************
   // Convenience routines
   // ****************************************************************
@@ -253,3 +226,4 @@ async function main() {
 }
 
 main().catch((error) => console.error('error occurred', error));
+```

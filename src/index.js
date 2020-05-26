@@ -94,11 +94,12 @@ const createTransaction = async (databaseName, backend, callback) => {
   // if callback is specified we are handling the transactional safety
   if (callback) {
     const transaction = await createTransaction(databaseName, backend);
+
     try {
       await callback(transaction);
-      transaction.commit();
+      await transaction.commit();
     } catch (e) {
-      transaction.rollback();
+      await transaction.rollback();
       throw e;
     }
 
@@ -108,7 +109,7 @@ const createTransaction = async (databaseName, backend, callback) => {
   const newBackend = await backend.transaction();
   const newDatabaseState = Object.assign({}, getDatabaseState(databaseName), { backend: newBackend });
   return Object.assign(defaultMaterializedItems(newBackend), generateMaterializedView(newDatabaseState), {
-    checkpoint: () => newBackend.checkpoint(),
+    transaction: (newCallback) => createTransaction(databaseName, newBackend, newCallback),
     commit: () => newBackend.commit(),
     rollback: () => newBackend.rollback(),
     complete: () => newBackend.complete(),

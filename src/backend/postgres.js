@@ -138,7 +138,6 @@ const generateOrder = (order) => {
 
 const runSql = async (sql, display, connection) => {
   const [fullSql, values] = sqlArrayToEscaped(sql, (index) => `$${index + 1}`);
-
   const results = await connection.query({
     rowMode: display === displayFlat ? 'array' : 'objects',
     values,
@@ -159,6 +158,7 @@ const runSql = async (sql, display, connection) => {
 
 export const transaction = async (connection, endConnection) => {
   const sql = (sql) => runSql(sql, displayObject, connection);
+  let currentTransaction;
 
   let level = 1;
   await sql('begin');
@@ -171,10 +171,11 @@ export const transaction = async (connection, endConnection) => {
     }
   };
 
-  const checkpoint = async () => {
+  const transaction = async () => {
     throwIfTransactionComplete();
     await sql('savepoint ' + savePointName());
     ++level;
+    return currentTransaction;
   };
 
   const rollback = async (force) => {
@@ -198,13 +199,14 @@ export const transaction = async (connection, endConnection) => {
     }
   };
 
-  return Object.assign(
+  currentTransaction = Object.assign(
     createEngineBundleFromConnection(() => {
       throwIfTransactionComplete();
       return Promise.resolve(connection);
     }),
-    { checkpoint, rollback, commit, complete: () => level === 0 }
+    { transaction, rollback, commit, complete: () => level === 0 }
   );
+  return currentTransaction;
 };
 
 export const save = async (model, record, primaryKeyName, connection) => {
