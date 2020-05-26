@@ -1,3 +1,5 @@
+drop table savetest3_author;
+drop table savetest3_book;
 drop table savetest1;
 drop table savetest2;
 drop table address;
@@ -38,6 +40,19 @@ create table savetest2 (
   id int,
   a int,
   b int,
+  primary key(id)
+);
+
+create table savetest3_author (
+  id serial,
+  name varchar(100),
+  primary key(id)
+);
+
+create table savetest3_book (
+  id serial,
+  name varchar(100) not null,
+  author int references savetest3_author(id) on delete cascade,
   primary key(id)
 );
 

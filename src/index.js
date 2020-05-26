@@ -1,7 +1,14 @@
 import { register as registerPostgres } from './backend/postgres';
 import { createBackend, displayFlat, displayObject, displayCount } from './backend';
 import { query } from './filter';
-import { addRelatedFieldsToResult, field, aggregation, aggregationSymbol, getPrimaryKeyFromModel } from './model';
+import {
+  addRelatedFieldsToResult,
+  field,
+  aggregation,
+  aggregationSymbol,
+  getPrimaryKeyFromModel,
+  flattenRelationshipsForSaving,
+} from './model';
 
 /**
  * Database state is comprised of:
@@ -10,7 +17,7 @@ import { addRelatedFieldsToResult, field, aggregation, aggregationSymbol, getPri
  *  materialized - how the developer interfaces with the database.
  */
 
-const defaultDatabase = Symbol('default');
+const defaultDatabase = '';
 let databaseState = {};
 
 const reservedModelNames = ['sql', 'databaseType', 'transaction'];
@@ -87,11 +94,12 @@ const createTransaction = async (databaseName, backend, callback) => {
   // if callback is specified we are handling the transactional safety
   if (callback) {
     const transaction = await createTransaction(databaseName, backend);
+
     try {
       await callback(transaction);
-      transaction.commit();
+      await transaction.commit();
     } catch (e) {
-      transaction.rollback();
+      await transaction.rollback();
       throw e;
     }
 
@@ -101,7 +109,7 @@ const createTransaction = async (databaseName, backend, callback) => {
   const newBackend = await backend.transaction();
   const newDatabaseState = Object.assign({}, getDatabaseState(databaseName), { backend: newBackend });
   return Object.assign(defaultMaterializedItems(newBackend), generateMaterializedView(newDatabaseState), {
-    checkpoint: () => newBackend.checkpoint(),
+    transaction: (newCallback) => createTransaction(databaseName, newBackend, newCallback),
     commit: () => newBackend.commit(),
     rollback: () => newBackend.rollback(),
     complete: () => newBackend.complete(),
@@ -194,6 +202,7 @@ class Query {
           const query = new Query(model, this._databaseState);
           return query.filter({ [field]: value });
         });
+
         return result;
       });
     };
@@ -217,7 +226,7 @@ class Query {
   }
 
   async count() {
-    const [result] = await this.values(JazzDb.aggregation.count(), { flat: true });
+    const [result] = await this.values(aggregation.count(), { flat: true });
     return +result;
   }
 
@@ -245,21 +254,22 @@ class Query {
 const save = (modelName, { schema, backend }) => {
   return async (record) => {
     const primaryKey = getPrimaryKeyFromModel(schema[modelName]);
-    const id = await backend.save(modelName, record, primaryKey);
+    const flattenedRecord = flattenRelationshipsForSaving(record, schema, modelName);
+    const id = await backend.save(modelName, flattenedRecord, primaryKey);
     record[primaryKey] = id;
-    return id;
+    return record;
   };
 };
 
 (() => {
   registerPostgres();
 
-  if (process.env.DATABASE) {
-    createDatabase(process.env.DATABASE);
+  if (process.env.NODE_DATABASE) {
+    createDatabase(process.env.NODE_DATABASE);
   }
 })();
 
-export const JazzDb = {
+export default {
   createDatabase,
   addSchema,
   getDatabase,

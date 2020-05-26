@@ -1,0 +1,15 @@
+site_name: Jazz
+site_url: https://github.com/lukesterg/jazz
+nav:
+  - Introduction: index.md
+  - Quick start: quickstart.md
+  - Creating records: creating.md
+  - Queries: queries.md
+  - Updating / Deleting: updating.md
+  - Transactions: transactions.md
+  - Direct SQL: direct.md
+markdown_extensions:
+  - admonition
+  - codehilite
+theme:
+  name: material

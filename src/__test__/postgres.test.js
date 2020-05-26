@@ -1,20 +1,27 @@
 import { defaultModels } from './constants';
-import { JazzDb } from '../';
+import Jazz from '../';
 import each from 'jest-each';
 
 const postgresConnectionString = 'postgres://test:qwerty@localhost/test';
 
 const getDatabase = () => {
   const databaseName = Symbol();
-  JazzDb.createDatabase(postgresConnectionString, databaseName);
-  JazzDb.addSchema(defaultModels, databaseName);
-  return JazzDb.getDatabase(databaseName);
+  Jazz.createDatabase(postgresConnectionString, databaseName);
+  Jazz.addSchema(defaultModels, databaseName);
+  return Jazz.getDatabase(databaseName);
 };
 
 afterAll(async () => {
   const database = getDatabase();
-  await database.savetest1.all.delete();
-  await database.savetest2.all.delete();
+
+  /*
+  await Promise.all([
+    database.savetest1.all.delete(),
+    database.savetest2.all.delete(),
+    database.savetest3_book.all.delete(),
+    database.savetest3_author.all.delete(),
+  ]);
+  */
   await database.end();
 });
 
@@ -316,14 +323,14 @@ test('OrderBy RelatedField InnerJoinedByFilter', async () => {
 
 test('Aggregate Count AllRecords', async () => {
   const database = getDatabase();
-  const studentCount = await database.student.all.values(JazzDb.aggregation.count());
+  const studentCount = await database.student.all.values(Jazz.aggregation.count());
   expect(studentCount).toEqual([{ all__count: '4' }]);
   await database.end();
 });
 
 test('Aggregate Count Field', async () => {
   const database = getDatabase();
-  const studentCount = await database.class.all.values(JazzDb.aggregation.count('helper'));
+  const studentCount = await database.class.all.values(Jazz.aggregation.count('helper'));
   expect(studentCount).toEqual([{ helper__count: '1' }]);
   await database.end();
 });
@@ -332,7 +339,7 @@ test('Aggregate Count Field WithGroupBy', async () => {
   const database = getDatabase();
   const aggregationResult = await database.student.all
     .order('class__name')
-    .values('class__name', JazzDb.aggregation.count());
+    .values('class__name', Jazz.aggregation.count());
 
   expect(aggregationResult).toEqual([
     { name: 'Year 3', all__count: '2' },
@@ -342,10 +349,10 @@ test('Aggregate Count Field WithGroupBy', async () => {
 });
 
 const aggregationTest = {
-  min: [JazzDb.aggregation.min, 5],
-  max: [JazzDb.aggregation.max, 10],
-  average: [JazzDb.aggregation.average, 7.25],
-  sum: [JazzDb.aggregation.sum, 29],
+  min: [Jazz.aggregation.min, 5],
+  max: [Jazz.aggregation.max, 10],
+  average: [Jazz.aggregation.average, 7.25],
+  sum: [Jazz.aggregation.sum, 29],
 };
 each(Object.keys(aggregationTest)).test('Aggregate %s Field', async (aggregationType) => {
   const database = getDatabase();
@@ -359,10 +366,10 @@ each(Object.keys(aggregationTest)).test('Aggregate %s Field', async (aggregation
 
 // prettier-ignore
 const aggregationWithGroupByTest = {
-  min: [JazzDb.aggregation.min, [['Year 3', 5], [ 'Year 4', 8]]],
-  max: [JazzDb.aggregation.max, [['Year 3', 6], [ 'Year 4', 10]]],
-  average: [JazzDb.aggregation.average, [['Year 3', 5.5], [ 'Year 4', 9]]],
-  sum: [JazzDb.aggregation.sum, [['Year 3', 11], [ 'Year 4', 18]]],
+  min: [Jazz.aggregation.min, [['Year 3', 5], [ 'Year 4', 8]]],
+  max: [Jazz.aggregation.max, [['Year 3', 6], [ 'Year 4', 10]]],
+  average: [Jazz.aggregation.average, [['Year 3', 5.5], [ 'Year 4', 9]]],
+  sum: [Jazz.aggregation.sum, [['Year 3', 11], [ 'Year 4', 18]]],
 };
 each(Object.keys(aggregationWithGroupByTest)).test('Aggregate %s Field WithGroupBy', async (aggregationType) => {
   const database = getDatabase();
@@ -378,7 +385,7 @@ each(Object.keys(aggregationWithGroupByTest)).test('Aggregate %s Field WithGroup
 
 test('Aggregate Related Field', async () => {
   const database = getDatabase();
-  const aggregationResult = await database.class.all.values('name', JazzDb.aggregation.min('students__age'), {
+  const aggregationResult = await database.class.all.values('name', Jazz.aggregation.min('students__age'), {
     flat: true,
   });
 
@@ -391,7 +398,7 @@ test('Aggregate Multiple Fields', async () => {
   const aggregationResult = await database.class.all
     .filter({ name: 'Year 3' })
     .order('students__name')
-    .values('name', 'students__name', JazzDb.aggregation.min('students__age'), {
+    .values('name', 'students__name', Jazz.aggregation.min('students__age'), {
       flat: true,
     });
 
@@ -404,10 +411,8 @@ test('Aggregate Multiple Fields', async () => {
 
 test('Save ByInsert UpdatesPrimaryKey', async () => {
   const database = getDatabase();
-  const item = { a: 1 };
-  const id = await database.savetest1.save(item);
+  const item = await database.savetest1.save({ a: 1 });
   expect(item.id).toBeGreaterThan(0);
-  expect(id).toEqual(item.id);
   await database.end();
 });
 
@@ -436,12 +441,76 @@ test('Save ByUpdate UpdatesCorrectly', async () => {
   const expectedNumber = Math.floor(Math.random() * 1e6);
   const item = { a: 1 };
   await database.savetest1.save(item);
-  const insertId = item.id;
   item.a = expectedNumber;
   await database.savetest1.save(item);
   const fetched = await database.savetest1.all.filter({ id: item.id }).single();
   expect(fetched).toEqual(item);
-  expect(insertId).toBe(item.id);
+  await database.end();
+});
+
+test('Save Relation HasOne', async () => {
+  const database = getDatabase();
+  const record = { name: 'Fred' };
+  await database.savetest3_author.save(record);
+  const fetched = await database.savetest3_author.all.filter({ id: record.id }).single();
+  expect(fetched).toEqual(record);
+  await database.end();
+});
+
+test('Save Relation HasMany Update WithNoRelationChange', async () => {
+  const database = getDatabase();
+  const author = await database.savetest3_author.save({ name: 'Fred' });
+  await database.savetest3_author.save(author);
+  const fetchedAuthor = await database.savetest3_author.all.filter({ id: author.id }).single();
+  fetchedAuthor.name = 'Bob';
+  await database.savetest3_author.save(fetchedAuthor);
+  const fetchedAuthorAfterUpdate = await database.savetest3_author.all.filter({ id: author.id }).single();
+  expect(fetchedAuthor).toEqual(fetchedAuthorAfterUpdate);
+  await database.end();
+});
+
+test('Save Relation HasMany', async () => {
+  const database = getDatabase();
+  const author = await database.savetest3_author.save({ name: 'Alice' });
+  const book = await database.savetest3_book.save({
+    name: 'The big book',
+    author,
+  });
+
+  const fetchedAuthor = await database.savetest3_author.all.filter({ id: author.id }).single();
+  const fetchedBooks = await fetchedAuthor.books();
+  delete book.author;
+  expect(fetchedBooks).toEqual([book]);
+  await database.end();
+});
+
+test('Save Relation HasOne Update WithNoRelationChange', async () => {
+  const database = getDatabase();
+  const author = await database.savetest3_author.save({ name: 'Fred' });
+  await database.savetest3_author.save(author);
+  const book = await database.savetest3_book.save({ name: 'Little Book', author });
+  await database.savetest3_book.save(book);
+  const fetchedBook = await database.savetest3_book.all.filter({ id: book.id }).single();
+  fetchedBook.name = 'Little Book 2';
+  await database.savetest3_book.save(fetchedBook);
+  const fetchedBookAfterUpdate = await database.savetest3_book.all.filter({ id: book.id }).single();
+  expect(fetchedBook).toEqual(fetchedBookAfterUpdate);
+  await database.end();
+});
+
+test('Save Relation HasOne Update WithRelationChange', async () => {
+  const database = getDatabase();
+  const originalAuthor = await database.savetest3_author.save({ name: 'Fred' });
+  await database.savetest3_author.save(originalAuthor);
+  const book = await database.savetest3_book.save({ name: 'Little Book', author: originalAuthor });
+  await database.savetest3_book.save(book);
+  const fetchedBook = await database.savetest3_book.all.filter({ id: book.id }).single();
+  const newAuthor = await database.savetest3_author.save({ name: 'Susan' });
+  fetchedBook.author(newAuthor);
+  await database.savetest3_book.save(fetchedBook);
+  const fetchedBookAfterUpdate = await database.savetest3_book.all.filter({ id: book.id }).single();
+  const newAuthorFetch = await fetchedBookAfterUpdate.author();
+  expect(newAuthorFetch).toEqual(newAuthor);
   await database.end();
 });
 
@@ -477,11 +546,11 @@ test('Transaction CanRollback', async () => {
   await database.end();
 });
 
-test('Transaction Checkpoint RollbackInNestedTransaction', async () => {
+test('Transaction transaction RollbackInNestedTransaction', async () => {
   const database = getDatabase();
   const transaction = await database.transaction();
   const id = await transaction.savetest1.save({ a: 1 });
-  await transaction.checkpoint();
+  await transaction.transaction();
 
   const nestedId = await transaction.savetest1.save({ a: 1 });
   await transaction.rollback();
@@ -496,11 +565,11 @@ test('Transaction Checkpoint RollbackInNestedTransaction', async () => {
   await database.end();
 });
 
-test('Transaction Checkpoint CommitInNestedTransaction', async () => {
+test('Transaction transaction CommitInNestedTransaction', async () => {
   const database = getDatabase();
   const transaction = await database.transaction();
   const id = await transaction.savetest1.save({ a: 1 });
-  await transaction.checkpoint();
+  await transaction.transaction();
   const nestedId = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
   const firstTransactionBeforeCommit = await database.savetest1.all.filter({ id }).single();
@@ -514,11 +583,11 @@ test('Transaction Checkpoint CommitInNestedTransaction', async () => {
   await database.end();
 });
 
-test('Transaction Checkpoint MultipleCheckpoints Commit', async () => {
+test('Transaction transaction Multipletransactions Commit', async () => {
   const database = getDatabase();
   const transaction = await database.transaction();
-  await transaction.checkpoint();
-  await transaction.checkpoint();
+  await transaction.transaction();
+  await transaction.transaction();
   const id = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
   await transaction.commit();
@@ -528,11 +597,11 @@ test('Transaction Checkpoint MultipleCheckpoints Commit', async () => {
   await database.end();
 });
 
-test('Transaction Checkpoint SeriesOfCommitsAndRollbacks', async () => {
+test('Transaction transaction SeriesOfCommitsAndRollbacks', async () => {
   const database = getDatabase();
   const transaction = await database.transaction();
-  await transaction.checkpoint();
-  await transaction.checkpoint();
+  await transaction.transaction();
+  await transaction.transaction();
   const id = await transaction.savetest1.save({ a: 1 });
   await transaction.commit();
   await transaction.rollback();
@@ -552,7 +621,7 @@ const transactionCompleteTests = (() => {
     ...operations,
     sql: (transaction) => transaction.sql`select * from class`,
     query: (transaction) => transaction.savetest1.all.single(),
-    checkpoint: (transaction) => transaction.checkpoint(),
+    transaction: (transaction) => transaction.transaction(),
   };
 
   const commandKeys = Object.keys(commands);

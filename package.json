@@ -1,6 +1,6 @@
 {
-  "name": "jazz-db",
-  "version": "1.0.0",
+  "name": "jazz-orm",
+  "version": "0.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
