@@ -12,7 +12,7 @@ const getDatabase = () => {
 
 beforeAll(async () => {
   const database = getDatabase();
-  const sql = fs.readFileSync(__dirname + '/postgres.sql', 'utf8');
+  const sql = fs.readFileSync(__dirname + '/../../src/__test__/postgres.sql', 'utf8');
   await database.sql(sql);
 });
 

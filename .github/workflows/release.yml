@@ -10,6 +10,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: node:10.18-jessie
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: test
+        options: >-
+            --health-cmd pg_isready
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
+
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v1
@@ -17,6 +32,9 @@ jobs:
           node-version: 12
       - run: npm ci
       - run: npm test
+      - run: npm run build
+        env:
+          NODE_DATABASE: "postgres://test:password@postgres/test"
 
   publish-npm:
     needs: build
@@ -28,6 +46,7 @@ jobs:
           node-version: 12
           registry-url: https://registry.npmjs.org/
       - run: npm ci
+      - run: npm run build
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.npm_token}}
@@ -42,6 +61,7 @@ jobs:
           node-version: 12
           registry-url: https://npm.pkg.github.com/
       - run: npm ci
+      - run: npm run build
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
