@@ -1,28 +1,19 @@
 import { defaultModels } from './constants';
 import Jazz from '../';
 import each from 'jest-each';
-
-const postgresConnectionString = 'postgres://test:qwerty@localhost/test';
+import fs from 'fs';
 
 const getDatabase = () => {
   const databaseName = Symbol();
-  Jazz.createDatabase(postgresConnectionString, databaseName);
+  Jazz.createDatabase(process.env.NODE_DATABASE, databaseName);
   Jazz.addSchema(defaultModels, databaseName);
   return Jazz.getDatabase(databaseName);
 };
 
-afterAll(async () => {
+beforeAll(async () => {
   const database = getDatabase();
-
-  /*
-  await Promise.all([
-    database.savetest1.all.delete(),
-    database.savetest2.all.delete(),
-    database.savetest3_book.all.delete(),
-    database.savetest3_author.all.delete(),
-  ]);
-  */
-  await database.end();
+  const sql = fs.readFileSync(__dirname + '/../../src/__test__/postgres.sql', 'utf8');
+  await database.sql(sql);
 });
 
 test('Engine is Postgres', async () => {

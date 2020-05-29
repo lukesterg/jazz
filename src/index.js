@@ -65,6 +65,11 @@ const sql = (backend) => {
       return (newStrings, ...newValues) => stringInterpolation(strings, newStrings, newValues);
     }
 
+    // Run plain SQL (no string interpolation)
+    if (typeof strings === 'string') {
+      return backend.runSql(strings, query ? (options.flat ? displayFlat : displayObject) : displayCount);
+    }
+
     const sql = [strings[0]];
     for (const [index, value] of values.entries()) {
       sql.push(value);

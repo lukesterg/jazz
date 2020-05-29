@@ -1,10 +1,10 @@
-drop table savetest3_author;
-drop table savetest3_book;
-drop table savetest1;
-drop table savetest2;
-drop table address;
-drop table student;
-drop table class;
+drop table if exists savetest3_book;
+drop table if exists savetest3_author;
+drop table if exists savetest1;
+drop table if exists savetest2;
+drop table if exists student;
+drop table if exists address;
+drop table if exists class;
 
 create table class(
   id serial,
