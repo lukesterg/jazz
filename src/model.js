@@ -102,7 +102,7 @@ const wrapForeignKey = (result, fieldName, query, single, defaultPrimaryKey, pri
     resultFetched = true;
     queryResult = single
       ? query.single()
-      : query.values().then((result) => (typeof result === 'object' ? Object.freeze(result) : result));
+      : query.get().then((result) => (typeof result === 'object' ? Object.freeze(result) : result));
     return queryResult;
   };
 

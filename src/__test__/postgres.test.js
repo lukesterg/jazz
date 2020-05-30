@@ -40,7 +40,7 @@ test('Raw SQL Flat', async () => {
 
 test('AllRecords ReturnsAllRows UsingValues', async () => {
   const database = getDatabase();
-  const results = await database.class.all.values();
+  const results = await database.class.all.get();
   const names = results.map((result) => result.name);
   names.sort();
   expect(names).toEqual(['Year 3', 'Year 4', 'Year 5']);
@@ -60,14 +60,14 @@ test('AllRecords ReturnsAllRows UsingAsyncIterator', async () => {
 
 test('Field ReturnSingleField', async () => {
   const database = getDatabase();
-  const results = await database.class.all.order('name').values('name');
+  const results = await database.class.all.order('name').get('name');
   expect(results).toEqual([{ name: 'Year 3' }, { name: 'Year 4' }, { name: 'Year 5' }]);
   await database.end();
 });
 
 test('Field ReturnMultipleFields', async () => {
   const database = getDatabase();
-  const results = await database.class.all.order('name').values('name', 'teacher');
+  const results = await database.class.all.order('name').get('name', 'teacher');
   expect(results).toEqual([
     { name: 'Year 3', teacher: 'Sam' },
     { name: 'Year 4', teacher: 'Sam' },
@@ -78,14 +78,14 @@ test('Field ReturnMultipleFields', async () => {
 
 test('Field ReturnSingleField Flat', async () => {
   const database = getDatabase();
-  const results = await database.class.all.order('name').values('name', { flat: true });
+  const results = await database.class.all.order('name').get('name', { flat: true });
   expect(results).toEqual(['Year 3', 'Year 4', 'Year 5']);
   await database.end();
 });
 
 test('Field ReturnMultipleFields Flat', async () => {
   const database = getDatabase();
-  const results = await database.class.all.order('name').values('name', 'teacher', { flat: true });
+  const results = await database.class.all.order('name').get('name', 'teacher', { flat: true });
   expect(results).toEqual([
     ['Year 3', 'Sam'],
     ['Year 4', 'Sam'],
@@ -96,21 +96,21 @@ test('Field ReturnMultipleFields Flat', async () => {
 
 test('Field WithDistinct', async () => {
   const database = getDatabase();
-  const results = await database.class.all.order('teacher').values('teacher', { flat: true, distinct: true });
+  const results = await database.class.all.order('teacher').get('teacher', { flat: true, distinct: true });
   expect(results).toEqual(['Sally', 'Sam']);
   await database.end();
 });
 
 test('OrderBy Ascending', async () => {
   const database = getDatabase();
-  const results = await database.class.all.order('name').values('name', { flat: true });
+  const results = await database.class.all.order('name').get('name', { flat: true });
   expect(results).toEqual(['Year 3', 'Year 4', 'Year 5']);
   await database.end();
 });
 
 test('OrderBy Descending', async () => {
   const database = getDatabase();
-  const results = await database.class.all.order([['name', 'desc']]).values('name', { flat: true });
+  const results = await database.class.all.order([['name', 'desc']]).get('name', { flat: true });
   expect(results).toEqual(['Year 5', 'Year 4', 'Year 3']);
   await database.end();
 });
@@ -128,34 +128,28 @@ each(Object.keys(conditionTests)).test('Filter Where "%s"', async (testName) => 
   const database = getDatabase();
   const [filterExpression, expectedResult] = conditionTests[testName];
 
-  const results = await database.class.all.filter(filterExpression).order('funding').values('funding', { flat: true });
+  const results = await database.class.all.filter(filterExpression).order('funding').get('funding', { flat: true });
   expect(results.map((i) => +i)).toEqual(expectedResult);
   await database.end();
 });
 
 test('Filter Where IsNull', async () => {
   const database = getDatabase();
-  const results = await database.class.all
-    .filter({ helper__isnull: true })
-    .order('name')
-    .values('name', { flat: true });
+  const results = await database.class.all.filter({ helper__isnull: true }).order('name').get('name', { flat: true });
   expect(results).toEqual(['Year 3', 'Year 4']);
   await database.end();
 });
 
 test('Filter Where IsNotNull', async () => {
   const database = getDatabase();
-  const results = await database.class.all
-    .filter({ helper__isnull: false })
-    .order('name')
-    .values('name', { flat: true });
+  const results = await database.class.all.filter({ helper__isnull: false }).order('name').get('name', { flat: true });
   expect(results).toEqual(['Year 5']);
   await database.end();
 });
 
 test('Filter Limit', async () => {
   const database = getDatabase();
-  const results = await database.class.all.order('name').values('name', { flat: true, limit: 1 });
+  const results = await database.class.all.order('name').get('name', { flat: true, limit: 1 });
   expect(results).toEqual(['Year 3']);
   await database.end();
 });
@@ -193,10 +187,7 @@ test('RelatedField HasOne', async () => {
 
 test('FindBy HasOneField', async () => {
   const database = getDatabase();
-  const result = await database.student.all
-    .filter({ class__name: 'Year 3' })
-    .order('name')
-    .values('name', { flat: true });
+  const result = await database.student.all.filter({ class__name: 'Year 3' }).order('name').get('name', { flat: true });
   expect(result).toEqual(['Alison', 'Troy']);
   await database.end();
 });
@@ -206,7 +197,7 @@ test('FindBy HasManyField', async () => {
   const result = await database.class.all
     .filter({ students__name: 'Alison' })
     .order('name')
-    .values('name', { flat: true });
+    .get('name', { flat: true });
   expect(result).toEqual(['Year 3']);
   await database.end();
 });
@@ -215,14 +206,14 @@ test('FindBy MultipleLevelsOfRelatedFields', async () => {
   const database = getDatabase();
   const results = await database.class.all
     .filter({ students__address__city: 'Moil' })
-    .values('name', { flat: true, distinct: true });
+    .get('name', { flat: true, distinct: true });
   expect(results).toEqual(['Year 3']);
   await database.end();
 });
 
 test('FindBy NotRelated', async () => {
   const database = getDatabase();
-  const results = await database.student.all.filter({ address__isnull: true }).values('name', { flat: true });
+  const results = await database.student.all.filter({ address__isnull: true }).get('name', { flat: true });
   expect(results).toEqual(['John']);
   await database.end();
 });
@@ -231,7 +222,7 @@ test('FindBy NotRelated AndRelated', async () => {
   const database = getDatabase();
   const results = await database.student.all
     .filter({ address__isnull: true }, { address__city: 'Moil' })
-    .values('name', { flat: true });
+    .get('name', { flat: true });
   expect(results).toEqual(['Troy', 'Alison', 'John']);
   await database.end();
 });
@@ -240,7 +231,7 @@ test('FindBy MultipleRelations InSameModel', async () => {
   const database = getDatabase();
   const results = await database.class.all
     .filter({ students__name: 'Troy', students__age: 5 })
-    .values('name', { flat: true });
+    .get('name', { flat: true });
   expect(results).toEqual(['Year 3']);
   await database.end();
 });
@@ -249,7 +240,7 @@ test('FindBy MultipleRelations InDifferentModels', async () => {
   const database = getDatabase();
   const results = await database.student.all
     .filter({ class__name: 'Year 3', address__city: 'Moil' })
-    .values('name', { flat: true });
+    .get('name', { flat: true });
   expect(results).toEqual(['Troy', 'Alison']);
   await database.end();
 });
@@ -260,14 +251,14 @@ test('FindBy RelationObject', async () => {
   const students = await database.student.all
     .filter({ class: existingClass })
     .order('name')
-    .values('name', { flat: true });
+    .get('name', { flat: true });
   expect(students).toEqual(['Alison', 'Troy']);
   await database.end();
 });
 
 test('Select RelatedField ManyToOne', async () => {
   const database = getDatabase();
-  const classesWithStudents = await database.student.all.values('class__name', { flat: true, distinct: true });
+  const classesWithStudents = await database.student.all.get('class__name', { flat: true, distinct: true });
   classesWithStudents.sort();
   expect(classesWithStudents).toEqual(['Year 3', 'Year 4']);
   await database.end();
@@ -275,7 +266,7 @@ test('Select RelatedField ManyToOne', async () => {
 
 test('Select RelatedField OneToMany', async () => {
   const database = getDatabase();
-  const studentsInClasses = await database.class.all.values('students__name', { flat: true, distinct: true });
+  const studentsInClasses = await database.class.all.get('students__name', { flat: true, distinct: true });
   studentsInClasses.sort();
   // the null occurs because of an optional join. One class does not have any students.
   expect(studentsInClasses).toEqual(['Alison', 'Joe', 'John', 'Troy', null]);
@@ -287,7 +278,7 @@ test('Select RelatedField InnerJoinedByFilter', async () => {
   const database = getDatabase();
   const studentsInClasses = await database.class.all
     .filter({ students__age__lte: 10 })
-    .values('students__name', { flat: true, distinct: true });
+    .get('students__name', { flat: true, distinct: true });
   studentsInClasses.sort();
   expect(studentsInClasses).toEqual(['Alison', 'Joe', 'John', 'Troy']);
   await database.end();
@@ -297,7 +288,7 @@ test('OrderBy RelatedField', async () => {
   const database = getDatabase();
   const classesWithStudents = await database.class.all
     .order('students__name')
-    .values('students__name', { flat: true, distinct: true });
+    .get('students__name', { flat: true, distinct: true });
   expect(classesWithStudents).toEqual(['Alison', 'Joe', 'John', 'Troy', null]);
   await database.end();
 });
@@ -307,21 +298,21 @@ test('OrderBy RelatedField InnerJoinedByFilter', async () => {
   const classesWithStudents = await database.class.all
     .filter({ students__age__lte: 10 })
     .order('students__name')
-    .values('students__name', { flat: true, distinct: true });
+    .get('students__name', { flat: true, distinct: true });
   expect(classesWithStudents).toEqual(['Alison', 'Joe', 'John', 'Troy']);
   await database.end();
 });
 
 test('Aggregate Count AllRecords', async () => {
   const database = getDatabase();
-  const studentCount = await database.student.all.values(Jazz.aggregation.count());
+  const studentCount = await database.student.all.get(Jazz.aggregation.count());
   expect(studentCount).toEqual([{ all__count: '4' }]);
   await database.end();
 });
 
 test('Aggregate Count Field', async () => {
   const database = getDatabase();
-  const studentCount = await database.class.all.values(Jazz.aggregation.count('helper'));
+  const studentCount = await database.class.all.get(Jazz.aggregation.count('helper'));
   expect(studentCount).toEqual([{ helper__count: '1' }]);
   await database.end();
 });
@@ -330,7 +321,7 @@ test('Aggregate Count Field WithGroupBy', async () => {
   const database = getDatabase();
   const aggregationResult = await database.student.all
     .order('class__name')
-    .values('class__name', Jazz.aggregation.count());
+    .get('class__name', Jazz.aggregation.count());
 
   expect(aggregationResult).toEqual([
     { name: 'Year 3', all__count: '2' },
@@ -348,7 +339,7 @@ const aggregationTest = {
 each(Object.keys(aggregationTest)).test('Aggregate %s Field', async (aggregationType) => {
   const database = getDatabase();
   const [aggregation, expectedResult] = aggregationTest[aggregationType];
-  const aggregationResult = await database.student.all.values(aggregation('age'), { flat: true });
+  const aggregationResult = await database.student.all.get(aggregation('age'), { flat: true });
 
   // decimal values and big ints are strings
   expect(+aggregationResult[0]).toEqual(expectedResult);
@@ -365,7 +356,7 @@ const aggregationWithGroupByTest = {
 each(Object.keys(aggregationWithGroupByTest)).test('Aggregate %s Field WithGroupBy', async (aggregationType) => {
   const database = getDatabase();
   const [aggregation, expectedResult] = aggregationWithGroupByTest[aggregationType];
-  const aggregationResult = await database.student.all.order('class__name').values('class__name', aggregation('age'), {
+  const aggregationResult = await database.student.all.order('class__name').get('class__name', aggregation('age'), {
     flat: true,
   });
 
@@ -376,7 +367,7 @@ each(Object.keys(aggregationWithGroupByTest)).test('Aggregate %s Field WithGroup
 
 test('Aggregate Related Field', async () => {
   const database = getDatabase();
-  const aggregationResult = await database.class.all.values('name', Jazz.aggregation.min('students__age'), {
+  const aggregationResult = await database.class.all.get('name', Jazz.aggregation.min('students__age'), {
     flat: true,
   });
 
@@ -389,7 +380,7 @@ test('Aggregate Multiple Fields', async () => {
   const aggregationResult = await database.class.all
     .filter({ name: 'Year 3' })
     .order('students__name')
-    .values('name', 'students__name', Jazz.aggregation.min('students__age'), {
+    .get('name', 'students__name', Jazz.aggregation.min('students__age'), {
       flat: true,
     });
 
