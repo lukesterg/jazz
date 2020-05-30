@@ -12,7 +12,7 @@ import Jazz from '../src';
   Ensure your NODE_DATABASE environment variable is setup to point to the database where you created this table.
 
   This script can be run on Mac OS and Linux using the following (remember to update the database path):
-  `NODE_DATABASE=postgres://test:qwerty@localhost/test npx babel-node examples/saving-data.js`
+  `NODE_DATABASE=postgres://test:password@localhost/test npx babel-node examples/saving-data.js`
 */
 
 const schema = {

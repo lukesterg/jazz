@@ -1,6 +1,6 @@
 # Jazz
 
-![](https://github.com/lukesterg/jazz/workflows/build/badge.svg?branch=master) ![](https://github.com/lukesterg/jazz/workflows/build/badge.svg?event=pull_request) [![Documentation Status](https://readthedocs.org/projects/jazz-orm/badge/?version=latest)](https://jazz-orm.readthedocs.io/en/latest/?badge=latest) [![Maintainability](https://api.codeclimate.com/v1/badges/437579d48f287f13bd59/maintainability)](https://codeclimate.com/github/lukesterg/jazz/maintainability)
+![](https://github.com/lukesterg/jazz/workflows/build/badge.svg?branch=master) [![Documentation Status](https://readthedocs.org/projects/jazz-orm/badge/?version=latest)](https://jazz-orm.readthedocs.io/en/latest/?badge=latest) [![Maintainability](https://api.codeclimate.com/v1/badges/437579d48f287f13bd59/maintainability)](https://codeclimate.com/github/lukesterg/jazz/maintainability)
 
 ## Overview
 
@@ -24,5 +24,7 @@ const numberOfEmployeesAtAnAddress = await database.address.all
 ```
 
 ## Documentation
+
+To install run `npm i jazz-orm`.
 
 Please read the documentation at https://jazz-orm.readthedocs.io/en/latest/.
