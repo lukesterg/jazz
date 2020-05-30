@@ -187,7 +187,7 @@ class Query {
     return await this._backend.update(finalQuery, record);
   }
 
-  async values(...fields) {
+  async get(...fields) {
     const peekLast = fields.length > 0 ? fields[fields.length - 1] : undefined;
     let options;
 
@@ -231,12 +231,12 @@ class Query {
   }
 
   async count() {
-    const [result] = await this.values(aggregation.count(), { flat: true });
+    const [result] = await this.get(aggregation.count(), { flat: true });
     return +result;
   }
 
   async single() {
-    const results = await this.values({ limit: 1 });
+    const results = await this.get({ limit: 1 });
     return results.length > 0 ? results[0] : undefined;
   }
 

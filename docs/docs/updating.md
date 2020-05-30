@@ -26,12 +26,12 @@ async function main() {
   console.log('Number of records updated', updateCount);
   // Number of records updated 1
 
-  const bobsAge = await database.employees.all.filter({ name: 'Bob' }).values('age');
+  const bobsAge = await database.employees.all.filter({ name: 'Bob' }).get('age');
   console.log(`Bob's age after update is`, bobsAge);
   // Bob's age after update is [ { age: 12 } ]
 
   await database.employees.all.update({ age: 20 });
-  const allEmployeesAge = await database.employees.all.values('name', 'age');
+  const allEmployeesAge = await database.employees.all.get('name', 'age');
   console.log('Employees ages after updating all their ages', allEmployeesAge);
   // Employees ages after updating all their ages [ { name: 'Alice', age: 20 }, { name: 'Bob', age: 20 } ]
 
