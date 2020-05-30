@@ -25,4 +25,6 @@ const numberOfEmployeesAtAnAddress = await database.address.all
 
 ## Documentation
 
+To install run `npm i jazz-orm`.
+
 Please read the documentation at https://jazz-orm.readthedocs.io/en/latest/.
