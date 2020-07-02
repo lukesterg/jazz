@@ -28,5 +28,7 @@
     "nodemon": "^2.0.2",
     "pg": "^7.18.2"
   },
-  "dependencies": {}
+  "dependencies": {
+    "scrub-a-dub-dub": "0.0.1-alpha.1"
+  }
 }
