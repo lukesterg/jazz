@@ -8,7 +8,10 @@ import {
   aggregationSymbol,
   getPrimaryKeyFromModel,
   flattenRelationshipsForSaving,
+  validateRecord,
 } from './model';
+import scrub from 'scrub-a-dub-dub';
+import { replaceObject } from './utilities';
 
 /**
  * Database state is comprised of:
@@ -258,7 +261,12 @@ class Query {
 
 const save = (modelName, { schema, backend }) => {
   return async (record) => {
-    const primaryKey = getPrimaryKeyFromModel(schema[modelName]);
+    const model = schema[modelName];
+    const primaryKey = getPrimaryKeyFromModel(model);
+    const sanitisedRecord = validateRecord(model, record, schema);
+
+    // Replace record in-place (this is to avoid the confusion between two models with different data)
+    replaceObject(record, sanitisedRecord);
     const flattenedRecord = flattenRelationshipsForSaving(record, schema, modelName);
     const id = await backend.save(modelName, flattenedRecord, primaryKey);
     record[primaryKey] = id;

@@ -94,7 +94,7 @@ const simplifyFilter = (() => {
       );
       const fieldModel = schema[fieldModelName];
       const fieldSchema = fieldModel[fieldName];
-      const isManyRelation = fieldSchema && fieldSchema.type === hasManyType;
+      const isManyRelation = fieldSchema && fieldSchema.relationshipType === hasManyType;
 
       if (typeof value === 'object') {
         const primaryKeyName = getPrimaryKeyFromModel(fieldModel);
@@ -144,7 +144,7 @@ const getSelectedModelFromKey = (keys, schema, models) => {
     }
 
     const join =
-      field.type === hasManyType
+      field.relationshipType === hasManyType
         ? [
             field.relatedModel,
             [modelName, getPrimaryKeyFromModel(currentModel)],
